@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
+from aiogram.types import BotCommand
 from config.settings import get_settings
 from database.repository import Database
 from ai.mistral_client import MistralClient
@@ -97,6 +98,22 @@ async def main():
 
     logging.info("Starting Mahiro bot...")
     try:
+        commands = [
+            BotCommand(command="start", description="Разбудить Махиро"),
+            BotCommand(command="stats", description="Показать мою статистику"),
+            BotCommand(command="mood", description="Узнать настроение Махиро"),
+            BotCommand(command="reset", description="Сбросить контекст диалога"),
+            BotCommand(command="voice", description="Озвучить текст голосом"),
+            BotCommand(command="quiz", description="Начать аниме-викторину"),
+            BotCommand(command="leaderboard", description="Таблица лидеров (Топ XP)"),
+            BotCommand(command="gift", description="Магазин подарков"),
+            BotCommand(command="donate", description="Пополнить баланс коинов"),
+            BotCommand(command="reminders", description="Список моих напоминаний"),
+            BotCommand(command="support", description="Написать в службу поддержки"),
+            BotCommand(command="admin", description="👑 Админ-Панель (только для админов)"),
+        ]
+        await bot.set_my_commands(commands)
+        
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot, **deps)
     finally:
