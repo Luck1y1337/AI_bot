@@ -128,7 +128,7 @@ class Database:
             return [Achievement(*row) for row in rows]
 
     async def get_top_users_by_xp(self, limit: int = 10) -> List[User]:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp FROM users ORDER BY xp DESC LIMIT ?', (limit,)) as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned FROM users ORDER BY xp DESC LIMIT ?', (limit,)) as cursor:
             rows = await cursor.fetchall()
             return [User(*row) for row in rows]
 
