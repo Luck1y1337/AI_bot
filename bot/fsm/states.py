@@ -7,6 +7,8 @@ class AdminStates(StatesGroup):
     waiting_for_broadcast = State()
     waiting_for_coin_user_id = State()
     waiting_for_coin_amount = State()
+    waiting_for_xp_user_id = State()
+    waiting_for_xp_amount = State()
     waiting_for_history_user_id = State()
 
 class SupportStates(StatesGroup):

@@ -147,6 +147,40 @@ async def process_coin_amount(message: Message, state: FSMContext, db: Database)
         await message.answer("Пожалуйста, отправьте корректное число.", reply_markup=get_back_button("admin_main"))
     await state.clear()
 
+@router.callback_query(F.data == "admin_xp")
+async def admin_xp_start(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id): return
+    await state.set_state(AdminStates.waiting_for_xp_user_id)
+    await callback.message.edit_text("Отправьте ID пользователя, которому нужно изменить XP:", reply_markup=get_back_button("admin_main"))
+
+@router.message(AdminStates.waiting_for_xp_user_id)
+async def process_xp_user_id(message: Message, state: FSMContext, db: Database):
+    if not is_admin(message.from_user.id): return
+    try:
+        user_id = int(message.text)
+        user = await db.get_user(user_id)
+        await state.update_data(xp_user_id=user_id)
+        await state.set_state(AdminStates.waiting_for_xp_amount)
+        await message.answer(f"Пользователь {user_id} найден. Текущий XP: {user.xp} ✨.\nОтправьте новое количество XP:", reply_markup=get_back_button("admin_main"))
+    except:
+        await message.answer("Неверный ID пользователя.", reply_markup=get_back_button("admin_main"))
+        await state.clear()
+
+@router.message(AdminStates.waiting_for_xp_amount)
+async def process_xp_amount(message: Message, state: FSMContext, db: Database):
+    if not is_admin(message.from_user.id): return
+    try:
+        amount = int(message.text)
+        data = await state.get_data()
+        user_id = data.get("xp_user_id")
+        user = await db.get_user(user_id)
+        user.xp = amount
+        await db.update_user(user)
+        await message.answer(f"XP пользователя {user_id} успешно изменен на {amount} ✨.", reply_markup=get_back_button("admin_main"))
+    except:
+        await message.answer("Пожалуйста, отправьте корректное число.", reply_markup=get_back_button("admin_main"))
+    await state.clear()
+
 @router.callback_query(F.data == "admin_history")
 async def admin_history_start(callback: CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id): return

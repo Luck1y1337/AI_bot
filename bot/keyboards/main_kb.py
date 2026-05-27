@@ -14,4 +14,4 @@ def get_main_menu(user_id: int) -> ReplyKeyboardMarkup:
     if user_id in settings.ADMIN_USER_IDS:
         kb.append([KeyboardButton(text="👑 Админ Панель")])
         
-    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, is_persistent=True)
+    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, is_persistent=False)
