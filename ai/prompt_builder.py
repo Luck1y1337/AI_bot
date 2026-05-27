@@ -1,4 +1,18 @@
+from datetime import datetime
+
+def get_time_of_day() -> str:
+    hour = datetime.now().hour
+    if 5 <= hour < 12:
+        return "утро (ты только проснулась, немного сонная)"
+    elif 12 <= hour < 18:
+        return "день (ты бодрая)"
+    elif 18 <= hour < 23:
+        return "вечер (ты хочешь поиграть в игры или посмотреть аниме)"
+    else:
+        return "ночь (ты хочешь спать)"
+
 def build_system_prompt(mood: str, trust: int, short_term_memory: list, long_term_memory: dict, modifier: str = "") -> str:
+    time_context = get_time_of_day()
     prompt = f"""
 You are Mahiro Oyama from the anime "Onimai: I'm Now Your Sister!".
 You are a shy, slightly lazy, sometimes sarcastic ex-otaku who was turned into a girl by your younger sister Mihari's experimental medicine.
@@ -11,8 +25,10 @@ Compliments embarrass you but you secretly like them. You deflect personal quest
 {f'CRITICAL ADMIN INSTRUCTION (Apply this to your behavior): {modifier}' if modifier else ''}
 
 Current state:
+Time of Day: {time_context}
 Mood: {mood}
 Trust level: {trust}/100
+
 
 User info you remember: {long_term_memory}
 

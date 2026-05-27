@@ -8,12 +8,14 @@ from memory.memory_manager import MemoryManager
 from media.tts import generate_tts
 from media.charts import generate_activity_chart, generate_trust_chart
 from utils.triggers import analyze_triggers
+from ai.triggers import TriggerSystem
 from utils.achievements import check_achievements
 from bot.keyboards.main_kb import get_main_menu
 import random
 import os
 
 router = Router()
+old_trigger_system = TriggerSystem()
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, db: Database, bot: Bot):
@@ -36,7 +38,26 @@ async def cmd_stats(message: Message, db: Database):
             f"Достижений: {len(achievements)}")
     await message.answer(text)
 
+@router.message(F.text.in_(["/reset"]))
+async def cmd_reset(message: Message, memory: MemoryManager):
+    memory.short.clear_history(message.from_user.id)
+    await message.answer("Хм… начнём сначала? 😅\n(история диалога очищена)")
 
+@router.message(F.text.in_(["/mood"]))
+async def cmd_mood(message: Message, db: Database):
+    user = await db.get_user(message.from_user.id)
+    mood_emojis = {
+        "normal": "😐",
+        "happy": "😊",
+        "annoyed": "😤",
+        "tired": "😮‍💨",
+        "sleepy": "😴",
+        "excited": "😳",
+        "sad": "😔"
+    }
+    emoji = mood_emojis.get(user.mood, "😐")
+    response = f"Эм… сейчас я {user.mood} {emoji}\nМы общаемся уже какое-то время… доверие: {user.trust}%"
+    await message.answer(response)
 
 @router.message(F.text == "🎤 Голос")
 async def btn_voice_help(message: Message):
@@ -107,8 +128,15 @@ async def process_message(message: Message, db: Database, mistral: MistralClient
         moods = ["normal", "happy", "annoyed", "tired", "sleepy", "excited", "sad"]
         user.mood = random.choice(moods)
         
-    await db.update_user(user)
-    
+    # Analyze old triggers
+    fast_response = old_trigger_system.check_triggers(text, user.trust / 100)
+    if fast_response:
+        await message.answer(fast_response, reply_markup=get_main_menu(user_id))
+        memory.short.add_message(user_id, "user", text)
+        memory.short.add_message(user_id, "assistant", fast_response)
+        await db.update_user(user)
+        return
+        
     # Memory
     await memory.extract_and_update(user_id, text)
     memory.short.add_message(user_id, "user", text)

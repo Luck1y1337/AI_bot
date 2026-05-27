@@ -14,3 +14,7 @@ class ShortTermMemory:
         if user_id not in self.buffers:
             self.buffers[user_id] = deque(maxlen=self.maxlen)
         self.buffers[user_id].append({"role": role, "content": content})
+        
+    def clear_history(self, user_id: int):
+        if user_id in self.buffers:
+            self.buffers[user_id].clear()
