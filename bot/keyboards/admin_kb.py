@@ -4,13 +4,14 @@ import os
 def get_admin_main_kb() -> InlineKeyboardMarkup:
     """Главное меню админ-панели"""
     keyboard = [
-        [InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats")],
-        [InlineKeyboardButton(text="👥 Пользователи", callback_data="admin_users_list")],
-        [InlineKeyboardButton(text="💰 Донаты", callback_data="admin_donations")],
-        [InlineKeyboardButton(text="🔐 Whitelist", callback_data="admin_whitelist_menu")],
-        [InlineKeyboardButton(text="🚫 Blacklist", callback_data="admin_blacklist_menu")],
-        [InlineKeyboardButton(text="📢 Рассылка", callback_data="admin_broadcast")],
-        [InlineKeyboardButton(text="⚙️ Настройки", callback_data="admin_settings")],
+        [InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats"),
+         InlineKeyboardButton(text="👥 Пользователи", callback_data="admin_users_list")],
+        [InlineKeyboardButton(text="🪙 Управление Коинами", callback_data="admin_coins"),
+         InlineKeyboardButton(text="💬 Чтение Истории", callback_data="admin_history")],
+        [InlineKeyboardButton(text="🔐 Whitelist", callback_data="admin_whitelist_menu"),
+         InlineKeyboardButton(text="🚫 Blacklist", callback_data="admin_blacklist_menu")],
+        [InlineKeyboardButton(text="📢 Рассылка", callback_data="admin_broadcast"),
+         InlineKeyboardButton(text="⚙️ Настройки", callback_data="admin_settings")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 

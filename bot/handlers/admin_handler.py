@@ -12,6 +12,7 @@ import os
 import zipfile
 import csv
 import json
+from memory.memory_manager import MemoryManager
 
 router = Router()
 settings = get_settings()
@@ -110,7 +111,68 @@ async def admin_logs(callback: CallbackQuery):
 async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id): return
     await state.set_state(AdminStates.waiting_for_broadcast)
-    await callback.message.edit_text("Отправьте сообщение для рассылки всем пользователям:")
+    await callback.message.edit_text("Отправьте сообщение для рассылки всем пользователям:", reply_markup=get_back_button("admin_main"))
+
+@router.callback_query(F.data == "admin_coins")
+async def admin_coins_start(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id): return
+    await state.set_state(AdminStates.waiting_for_coin_user_id)
+    await callback.message.edit_text("Отправьте ID пользователя, которому нужно изменить баланс коинов:", reply_markup=get_back_button("admin_main"))
+
+@router.message(AdminStates.waiting_for_coin_user_id)
+async def process_coin_user_id(message: Message, state: FSMContext, db: Database):
+    if not is_admin(message.from_user.id): return
+    try:
+        user_id = int(message.text)
+        user = await db.get_user(user_id)
+        await state.update_data(coin_user_id=user_id)
+        await state.set_state(AdminStates.waiting_for_coin_amount)
+        await message.answer(f"Пользователь {user_id} найден. Текущий баланс: {user.coins} 🪙.\nОтправьте новое количество коинов:", reply_markup=get_back_button("admin_main"))
+    except:
+        await message.answer("Неверный ID пользователя.", reply_markup=get_back_button("admin_main"))
+        await state.clear()
+
+@router.message(AdminStates.waiting_for_coin_amount)
+async def process_coin_amount(message: Message, state: FSMContext, db: Database):
+    if not is_admin(message.from_user.id): return
+    try:
+        amount = int(message.text)
+        data = await state.get_data()
+        user_id = data.get("coin_user_id")
+        user = await db.get_user(user_id)
+        user.coins = amount
+        await db.update_user(user)
+        await message.answer(f"Баланс пользователя {user_id} успешно изменен на {amount} 🪙.", reply_markup=get_back_button("admin_main"))
+    except:
+        await message.answer("Пожалуйста, отправьте корректное число.", reply_markup=get_back_button("admin_main"))
+    await state.clear()
+
+@router.callback_query(F.data == "admin_history")
+async def admin_history_start(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id): return
+    await state.set_state(AdminStates.waiting_for_history_user_id)
+    await callback.message.edit_text("Отправьте ID пользователя для просмотра истории диалога:", reply_markup=get_back_button("admin_main"))
+
+@router.message(AdminStates.waiting_for_history_user_id)
+async def process_history_user_id(message: Message, state: FSMContext, memory: MemoryManager):
+    if not is_admin(message.from_user.id): return
+    try:
+        user_id = int(message.text)
+        history = memory.short.get_history(user_id)
+        if not history:
+            await message.answer("История пуста (в краткосрочной памяти нет сообщений).", reply_markup=get_back_button("admin_main"))
+        else:
+            text = f"💬 **История для {user_id}:**\n\n"
+            for msg in history:
+                icon = "👤" if msg['role'] == "user" else "🤖"
+                text += f"{icon} {msg['content']}\n"
+                if len(text) > 3500:
+                    text += "...\n[Сообщение обрезано из-за лимита Telegram]"
+                    break
+            await message.answer(text, reply_markup=get_back_button("admin_main"))
+    except:
+        await message.answer("Неверный ID пользователя.", reply_markup=get_back_button("admin_main"))
+    await state.clear()
 
 @router.message(AdminStates.waiting_for_broadcast)
 async def process_broadcast(message: Message, state: FSMContext, db: Database):
@@ -126,7 +188,7 @@ async def process_broadcast(message: Message, state: FSMContext, db: Database):
             sent += 1
         except:
             pass
-    await message.answer(f"Рассылка отправлена {sent} пользователям.")
+    await message.answer(f"Рассылка отправлена {sent} пользователям.", reply_markup=get_back_button("admin_main"))
     await state.clear()
 
 @router.message(F.text.startswith("/ban "))
