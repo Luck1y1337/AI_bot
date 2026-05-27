@@ -53,3 +53,33 @@ def get_back_button(callback_data: str = "admin_main") -> InlineKeyboardMarkup:
     """Кнопка назад"""
     keyboard = [[InlineKeyboardButton(text="« Назад", callback_data=callback_data)]]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+def get_users_selection_kb(users: list, action: str, page: int = 0) -> InlineKeyboardMarkup:
+    """Клавиатура для выбора пользователя с пагинацией"""
+    keyboard = []
+    items_per_page = 10
+    start_idx = page * items_per_page
+    end_idx = start_idx + items_per_page
+    
+    for user in users[start_idx:end_idx]:
+        if action == "coin":
+            text = f"ID: {user.id} | 🪙 {user.coins}"
+        elif action == "xp":
+            text = f"ID: {user.id} | ✨ {user.xp}"
+        else:
+            text = f"ID: {user.id} | 💬 {user.message_count}"
+        
+        keyboard.append([InlineKeyboardButton(text=text, callback_data=f"admin_selectuser_{action}_{user.id}")])
+    
+    # Пагинация
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(InlineKeyboardButton(text="⬅️ Назад", callback_data=f"admin_userspage_{action}_{page-1}"))
+    if end_idx < len(users):
+        nav_buttons.append(InlineKeyboardButton(text="Вперед ➡️", callback_data=f"admin_userspage_{action}_{page+1}"))
+        
+    if nav_buttons:
+        keyboard.append(nav_buttons)
+        
+    keyboard.append([InlineKeyboardButton(text="« Отмена", callback_data="admin_main")])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)

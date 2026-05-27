@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from database.repository import Database
 from config.settings import get_settings
 from bot.fsm.states import AdminStates
-from bot.keyboards.admin_kb import get_admin_main_kb, get_settings_menu, get_back_button, get_whitelist_menu, get_blacklist_menu
+from bot.keyboards.admin_kb import get_admin_main_kb, get_settings_menu, get_back_button, get_whitelist_menu, get_blacklist_menu, get_users_selection_kb
 from media.charts import generate_activity_chart, generate_trust_chart
 import psutil
 import platform
@@ -114,23 +114,10 @@ async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text("Отправьте сообщение для рассылки всем пользователям:", reply_markup=get_back_button("admin_main"))
 
 @router.callback_query(F.data == "admin_coins")
-async def admin_coins_start(callback: CallbackQuery, state: FSMContext):
+async def admin_coins_start(callback: CallbackQuery, db: Database):
     if not is_admin(callback.from_user.id): return
-    await state.set_state(AdminStates.waiting_for_coin_user_id)
-    await callback.message.edit_text("Отправьте ID пользователя, которому нужно изменить баланс коинов:", reply_markup=get_back_button("admin_main"))
-
-@router.message(AdminStates.waiting_for_coin_user_id)
-async def process_coin_user_id(message: Message, state: FSMContext, db: Database):
-    if not is_admin(message.from_user.id): return
-    try:
-        user_id = int(message.text)
-        user = await db.get_user(user_id)
-        await state.update_data(coin_user_id=user_id)
-        await state.set_state(AdminStates.waiting_for_coin_amount)
-        await message.answer(f"Пользователь {user_id} найден. Текущий баланс: {user.coins} 🪙.\nОтправьте новое количество коинов:", reply_markup=get_back_button("admin_main"))
-    except:
-        await message.answer("Неверный ID пользователя.", reply_markup=get_back_button("admin_main"))
-        await state.clear()
+    users = await db.get_all_users()
+    await callback.message.edit_text("Выберите пользователя для изменения коинов:", reply_markup=get_users_selection_kb(users, "coin", 0))
 
 @router.message(AdminStates.waiting_for_coin_amount)
 async def process_coin_amount(message: Message, state: FSMContext, db: Database):
@@ -148,23 +135,10 @@ async def process_coin_amount(message: Message, state: FSMContext, db: Database)
     await state.clear()
 
 @router.callback_query(F.data == "admin_xp")
-async def admin_xp_start(callback: CallbackQuery, state: FSMContext):
+async def admin_xp_start(callback: CallbackQuery, db: Database):
     if not is_admin(callback.from_user.id): return
-    await state.set_state(AdminStates.waiting_for_xp_user_id)
-    await callback.message.edit_text("Отправьте ID пользователя, которому нужно изменить XP:", reply_markup=get_back_button("admin_main"))
-
-@router.message(AdminStates.waiting_for_xp_user_id)
-async def process_xp_user_id(message: Message, state: FSMContext, db: Database):
-    if not is_admin(message.from_user.id): return
-    try:
-        user_id = int(message.text)
-        user = await db.get_user(user_id)
-        await state.update_data(xp_user_id=user_id)
-        await state.set_state(AdminStates.waiting_for_xp_amount)
-        await message.answer(f"Пользователь {user_id} найден. Текущий XP: {user.xp} ✨.\nОтправьте новое количество XP:", reply_markup=get_back_button("admin_main"))
-    except:
-        await message.answer("Неверный ID пользователя.", reply_markup=get_back_button("admin_main"))
-        await state.clear()
+    users = await db.get_all_users()
+    await callback.message.edit_text("Выберите пользователя для изменения XP:", reply_markup=get_users_selection_kb(users, "xp", 0))
 
 @router.message(AdminStates.waiting_for_xp_amount)
 async def process_xp_amount(message: Message, state: FSMContext, db: Database):
@@ -182,19 +156,32 @@ async def process_xp_amount(message: Message, state: FSMContext, db: Database):
     await state.clear()
 
 @router.callback_query(F.data == "admin_history")
-async def admin_history_start(callback: CallbackQuery, state: FSMContext):
+async def admin_history_start(callback: CallbackQuery, db: Database):
     if not is_admin(callback.from_user.id): return
-    await state.set_state(AdminStates.waiting_for_history_user_id)
-    await callback.message.edit_text("Отправьте ID пользователя для просмотра истории диалога:", reply_markup=get_back_button("admin_main"))
+    users = await db.get_all_users()
+    await callback.message.edit_text("Выберите пользователя для просмотра истории диалога:", reply_markup=get_users_selection_kb(users, "history", 0))
 
-@router.message(AdminStates.waiting_for_history_user_id)
-async def process_history_user_id(message: Message, state: FSMContext, memory: MemoryManager):
-    if not is_admin(message.from_user.id): return
-    try:
-        user_id = int(message.text)
+@router.callback_query(F.data.startswith("admin_userspage_"))
+async def admin_userspage(callback: CallbackQuery, db: Database):
+    if not is_admin(callback.from_user.id): return
+    parts = callback.data.split("_")
+    action = parts[2]
+    page = int(parts[3])
+    users = await db.get_all_users()
+    text = f"Выберите пользователя для: {action}"
+    await callback.message.edit_text(text, reply_markup=get_users_selection_kb(users, action, page))
+
+@router.callback_query(F.data.startswith("admin_selectuser_"))
+async def admin_selectuser(callback: CallbackQuery, state: FSMContext, db: Database, memory: MemoryManager):
+    if not is_admin(callback.from_user.id): return
+    parts = callback.data.split("_")
+    action = parts[2]
+    user_id = int(parts[3])
+    
+    if action == "history":
         history = memory.short.get_history(user_id)
         if not history:
-            await message.answer("История пуста (в краткосрочной памяти нет сообщений).", reply_markup=get_back_button("admin_main"))
+            await callback.message.edit_text(f"История для {user_id} пуста.", reply_markup=get_back_button("admin_main"))
         else:
             text = f"💬 **История для {user_id}:**\n\n"
             for msg in history:
@@ -203,10 +190,18 @@ async def process_history_user_id(message: Message, state: FSMContext, memory: M
                 if len(text) > 3500:
                     text += "...\n[Сообщение обрезано из-за лимита Telegram]"
                     break
-            await message.answer(text, reply_markup=get_back_button("admin_main"))
-    except:
-        await message.answer("Неверный ID пользователя.", reply_markup=get_back_button("admin_main"))
-    await state.clear()
+            await callback.message.edit_text(text, reply_markup=get_back_button("admin_main"))
+    elif action == "coin":
+        user = await db.get_user(user_id)
+        await state.update_data(coin_user_id=user_id)
+        await state.set_state(AdminStates.waiting_for_coin_amount)
+        await callback.message.edit_text(f"Выбран пользователь {user_id}.\nТекущий баланс: {user.coins} 🪙.\nОтправьте новое количество коинов:", reply_markup=get_back_button("admin_main"))
+    elif action == "xp":
+        user = await db.get_user(user_id)
+        await state.update_data(xp_user_id=user_id)
+        await state.set_state(AdminStates.waiting_for_xp_amount)
+        await callback.message.edit_text(f"Выбран пользователь {user_id}.\nТекущий XP: {user.xp} ✨.\nОтправьте новое количество XP:", reply_markup=get_back_button("admin_main"))
+    await callback.answer()
 
 @router.message(AdminStates.waiting_for_broadcast)
 async def process_broadcast(message: Message, state: FSMContext, db: Database):
