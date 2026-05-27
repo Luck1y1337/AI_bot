@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  bot:
+    build: .
+    volumes:
+      - ./data:/app/data
+      - ./cache:/app/cache
+      - ./logs:/app/logs
+      - ./media/images:/app/media/images
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

@@ -1,0 +1,17 @@
+aiogram>=3.15.0
+pydantic-settings
+aiosqlite
+fastapi
+uvicorn
+apscheduler
+matplotlib
+Pillow
+aiofiles
+gTTS
+psutil
+pytest
+pytest-asyncio
+httpx
+jinja2
+python-multipart
+pyjwt
