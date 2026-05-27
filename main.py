@@ -99,18 +99,28 @@ async def main():
     logging.info("Starting Mahiro bot...")
     try:
         commands = [
-            BotCommand(command="start", description="Разбудить Махиро"),
-            BotCommand(command="stats", description="Показать мою статистику"),
-            BotCommand(command="mood", description="Узнать настроение Махиро"),
-            BotCommand(command="reset", description="Сбросить контекст диалога"),
-            BotCommand(command="voice", description="Озвучить текст голосом"),
-            BotCommand(command="quiz", description="Начать аниме-викторину"),
-            BotCommand(command="leaderboard", description="Таблица лидеров (Топ XP)"),
-            BotCommand(command="gift", description="Магазин подарков"),
-            BotCommand(command="donate", description="Пополнить баланс коинов"),
-            BotCommand(command="reminders", description="Список моих напоминаний"),
-            BotCommand(command="support", description="Написать в службу поддержки"),
-            BotCommand(command="admin", description="👑 Админ-Панель (только для админов)"),
+            BotCommand(command="start", description="Разбудить Махиро и начать диалог."),
+            BotCommand(command="stats", description="Показать ваш профиль: количество сообщений, коинов (🪙), XP (✨), доверие, настроение и список достижений."),
+            BotCommand(command="mood", description="Узнать текущее настроение Махиро и ваш процент доверия (помогает понять, почему она с вами так общается)."),
+            BotCommand(command="reset", description="Мгновенно стирает краткосрочную память ИИ. Используйте, если Махиро зависла на одной теме."),
+            BotCommand(command="support", description="Написать тикет администратору (служба поддержки)."),
+            BotCommand(command="remind", description="Установить напоминание (например: /remind выпить воды in 10 m)."),
+            BotCommand(command="reminders", description="Посмотреть список ваших активных напоминаний."),
+            BotCommand(command="voice", description="Попросить Махиро озвучить ваш текст её голосом (генерирует голосовое сообщение)."),
+            BotCommand(command="quiz", description="Запустить интерактивную аниме-викторину для заработка XP и коинов."),
+            BotCommand(command="leaderboard", description="Открыть таблицу лидеров (топ пользователей по XP)."),
+            BotCommand(command="gift", description="Открыть магазин подарков. Повышает её доверие/настроение!"),
+            BotCommand(command="donate", description="Пополнить баланс коинов с помощью реальных Telegram Stars."),
+            BotCommand(command="promo", description="Активировать секретный промокод на коины и XP."),
+            BotCommand(command="admin", description="Открыть главное меню Админ-Панели."),
+            BotCommand(command="addpromo", description="Создать новый промокод. Пример: /addpromo MAHIRO 100 50 10."),
+            BotCommand(command="ban", description="Заблокировать пользователя (он больше не сможет писать боту)."),
+            BotCommand(command="unban", description="Разблокировать пользователя."),
+            BotCommand(command="reply", description="Ответить пользователю на его обращение в /support от лица администратора."),
+            BotCommand(command="maintenance", description="Включить/выключить режим обслуживания (заглушка для пользователей)."),
+            BotCommand(command="system", description="Быстро посмотреть нагрузку на ваш сервер (CPU, RAM, Диск)."),
+            BotCommand(command="logs", description="Скачать файл mahiro.log с логами ошибок."),
+            BotCommand(command="reload_config", description="Перезагрузить файл .env без перезапуска бота.")
         ]
         await bot.set_my_commands(commands)
         
