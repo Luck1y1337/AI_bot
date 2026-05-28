@@ -10,6 +10,7 @@ class User:
     xp: int
     coins: int
     is_banned: bool
+    last_daily_time: float = 0.0
 
 @dataclass
 class Reminder:

@@ -23,7 +23,8 @@ class Database:
                 message_count INTEGER DEFAULT 0,
                 xp INTEGER DEFAULT 0,
                 coins INTEGER DEFAULT 0,
-                is_banned BOOLEAN DEFAULT 0
+                is_banned BOOLEAN DEFAULT 0,
+                last_daily_time REAL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS reminders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,6 +65,11 @@ class Database:
         except Exception:
             pass
             
+        try:
+            await self._conn.execute('ALTER TABLE users ADD COLUMN last_daily_time REAL DEFAULT 0')
+        except Exception:
+            pass
+            
         await self._conn.commit()
 
     async def close(self):
@@ -71,23 +77,23 @@ class Database:
             await self._conn.close()
 
     async def get_user(self, user_id: int) -> User:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned FROM users WHERE id = ?', (user_id,)) as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time FROM users WHERE id = ?', (user_id,)) as cursor:
             row = await cursor.fetchone()
             if row:
                 return User(*row)
             # Create user if not exists
             await self._conn.execute('INSERT INTO users (id) VALUES (?)', (user_id,))
             await self._conn.commit()
-            return User(user_id, 50, 'normal', 0, 0, 0, False)
+            return User(user_id, 50, 'normal', 0, 0, 0, False, 0.0)
 
     async def update_user(self, user: User):
         await self._conn.execute('''
-            UPDATE users SET trust = ?, mood = ?, message_count = ?, xp = ?, coins = ?, is_banned = ? WHERE id = ?
-        ''', (user.trust, user.mood, user.message_count, user.xp, user.coins, user.is_banned, user.id))
+            UPDATE users SET trust = ?, mood = ?, message_count = ?, xp = ?, coins = ?, is_banned = ?, last_daily_time = ? WHERE id = ?
+        ''', (user.trust, user.mood, user.message_count, user.xp, user.coins, user.is_banned, user.last_daily_time, user.id))
         await self._conn.commit()
         
     async def get_all_users(self) -> List[User]:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned FROM users') as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time FROM users') as cursor:
             rows = await cursor.fetchall()
             return [User(*row) for row in rows]
 

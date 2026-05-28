@@ -8,7 +8,9 @@ ACHIEVEMENTS = {
     "gift_giver": "Gift Giver - Sent your first gift!",
     "anime_nerd": "Anime Nerd - Mentioned anime 20 times!",
     "streak_3": "Streak 3 - Chatted 3 days in a row!",
-    "streak_7": "Streak 7 - Chatted 7 days in a row!"
+    "streak_7": "Streak 7 - Chatted 7 days in a row!",
+    "rich_kid": "Rich Kid - Accumulated 1000 Coins! 💰",
+    "night_owl": "Night Owl - Chatted between 2 AM and 5 AM! 🦉"
 }
 
 async def check_achievements(user, db, message) -> list:
@@ -25,6 +27,14 @@ async def check_achievements(user, db, message) -> list:
         grant("trusted_friend")
     if user.message_count >= 100:
         grant("centurion")
+    if user.coins >= 1000:
+        grant("rich_kid")
+    
+    # Check if message was sent after midnight (between 2 AM and 5 AM)
+    from datetime import datetime
+    current_hour = datetime.now().hour
+    if 2 <= current_hour <= 5:
+        grant("night_owl")
         
     for a in awarded:
         await db.add_achievement(user.id, a)

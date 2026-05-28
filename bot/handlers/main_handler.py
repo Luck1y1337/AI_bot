@@ -29,14 +29,97 @@ async def cmd_start(message: Message, db: Database, bot: Bot):
 async def cmd_stats(message: Message, db: Database):
     user = await db.get_user(message.from_user.id)
     achievements = await db.get_user_achievements(message.from_user.id)
+    
+    # Beautify achievements
+    ach_text = "\n".join([f"🏆 {a.achievement_type}" for a in achievements]) if achievements else "Пока нет 😔"
+    
     text = (f"**Твоя Статистика**\n"
             f"Сообщений: {user.message_count}\n"
             f"Доверие: {user.trust}%\n"
             f"Настроение: {user.mood}\n"
-            f"XP: {user.xp}\n"
-            f"MahiroCoins: 🪙 {user.coins}\n"
-            f"Достижений: {len(achievements)}")
+            f"XP: {user.xp} ✨\n"
+            f"MahiroCoins: 🪙 {user.coins}\n\n"
+            f"**Достижения:**\n{ach_text}")
     await message.answer(text)
+
+import time
+
+@router.message(F.text.in_(["/daily", "📅 Ежедневный Бонус"]))
+async def cmd_daily(message: Message, db: Database):
+    user = await db.get_user(message.from_user.id)
+    now = time.time()
+    
+    if now - user.last_daily_time >= 86400:
+        user.coins += 50
+        user.xp += 10
+        user.last_daily_time = now
+        await db.update_user(user)
+        await message.answer("Ура! Ты получил(а) ежедневный бонус:\n🪙 50 MahiroCoins\n✨ 10 XP\n\nПриходи завтра!")
+    else:
+        left = int(86400 - (now - user.last_daily_time))
+        hours = left // 3600
+        minutes = (left % 3600) // 60
+        await message.answer(f"Ты уже получал(а) бонус сегодня!\nПриходи через {hours} ч. {minutes} мин. ⏳")
+
+@router.message(F.text.in_(["/gacha", "🎰 Гача-бокс"]))
+async def cmd_gacha(message: Message, db: Database):
+    user = await db.get_user(message.from_user.id)
+    cost = 50
+    if user.coins < cost:
+        await message.answer(f"Для прокрутки Гачи нужно {cost} 🪙. У тебя только {user.coins} 🪙.")
+        return
+        
+    user.coins -= cost
+    roll = random.randint(1, 100)
+    
+    if roll <= 10:
+        user.trust += 5
+        reward = "ОГО! Махиро очень рада! +5 Очков доверия 💖"
+    elif roll <= 40:
+        user.xp += 100
+        reward = "Редкий бонус! +100 XP ✨"
+    elif roll <= 80:
+        user.xp += 20
+        reward = "Обычный бонус! +20 XP ✨"
+    else:
+        user.coins += 10
+        reward = "Упс, почти пусто. Но ты нашел 10 🪙 на дне коробки."
+        
+    await db.update_user(user)
+    await message.answer(f"🎰 **Крутим Гачу...**\n\n{reward}\n\nТвой баланс: {user.coins} 🪙")
+
+@router.message(F.text.startswith("/pay "))
+async def cmd_pay(message: Message, db: Database, bot: Bot):
+    try:
+        parts = message.text.split()
+        target_id = int(parts[1])
+        amount = int(parts[2])
+        if amount <= 0:
+            raise ValueError()
+    except:
+        await message.answer("Формат: `/pay <ID пользователя> <Сумма>`", parse_mode="Markdown")
+        return
+        
+    sender = await db.get_user(message.from_user.id)
+    if sender.coins < amount:
+        await message.answer("Недостаточно средств! 🪙")
+        return
+        
+    target = await db.get_user(target_id)
+    if target.message_count == 0 and target.coins == 0 and target.xp == 0:
+        await message.answer("Пользователь не найден в базе данных.")
+        return
+        
+    sender.coins -= amount
+    target.coins += amount
+    await db.update_user(sender)
+    await db.update_user(target)
+    
+    await message.answer(f"Успешно переведено {amount} 🪙 пользователю {target_id}!")
+    try:
+        await bot.send_message(target_id, f"💸 Вам пришел перевод: {amount} 🪙 от пользователя {message.from_user.id}!")
+    except:
+        pass
 
 @router.message(F.text.in_(["/reset"]))
 async def cmd_reset(message: Message, memory: MemoryManager):
@@ -107,10 +190,19 @@ async def process_photo(message: Message, db: Database, mistral: MistralClient, 
     await message.answer(response)
 
 @router.message(F.text)
-async def process_message(message: Message, db: Database, mistral: MistralClient, memory: MemoryManager):
+async def process_message(message: Message, db: Database, mistral: MistralClient, memory: MemoryManager, bot: Bot):
     user_id = message.from_user.id
     text = message.text
     
+    if message.chat.type in ['group', 'supergroup']:
+        bot_user = await bot.me()
+        is_reply = message.reply_to_message and message.reply_to_message.from_user.id == bot_user.id
+        is_mention = text and ("махиро" in text.lower() or f"@{bot_user.username}" in text)
+        is_random = random.random() < 0.02
+        
+        if not (is_reply or is_mention or is_random):
+            return
+            
     user = await db.get_user(user_id)
     if user.is_banned:
         return

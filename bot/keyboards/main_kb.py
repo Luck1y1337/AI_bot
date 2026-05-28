@@ -6,6 +6,7 @@ def get_main_menu(user_id: int) -> ReplyKeyboardMarkup:
     
     kb = [
         [KeyboardButton(text="🎮 Играть (Quiz)"), KeyboardButton(text="🎁 Подарить")],
+        [KeyboardButton(text="📅 Ежедневный Бонус"), KeyboardButton(text="🎰 Гача-бокс")],
         [KeyboardButton(text="📊 Моя Статистика"), KeyboardButton(text="🏆 Лидеры")],
         [KeyboardButton(text="⏰ Мои Напоминания"), KeyboardButton(text="🎤 Голос")],
         [KeyboardButton(text="🆘 Поддержка"), KeyboardButton(text="💝 Поддержать проект")]

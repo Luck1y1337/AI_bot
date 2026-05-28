@@ -11,6 +11,29 @@ def get_time_of_day() -> str:
     else:
         return "ночь (ты хочешь спать)"
 
+def get_season() -> str:
+    month = datetime.now().month
+    if month in (12, 1, 2):
+        return "зима (холодно, хочется завернуться в плед)"
+    elif month in (3, 4, 5):
+        return "весна (теплеет, настроение улучшается)"
+    elif month in (6, 7, 8):
+        return "лето (жарко, хочется мороженого)"
+    else:
+        return "осень (дождливо, хочется сидеть дома и играть)"
+
+def get_relationship_status(trust: int) -> str:
+    if trust < 20:
+        return "Незнакомец (ты относишься к нему с подозрением и держишь дистанцию)"
+    elif trust < 50:
+        return "Приятель (вы просто общаетесь, но ты всё ещё не открываешься полностью)"
+    elif trust < 80:
+        return "Друг (тебе с ним комфортно, можешь немного пошутить или рассказать о себе)"
+    elif trust < 100:
+        return "Лучший друг (ты ему полностью доверяешь и сильно привязана)"
+    else:
+        return "Семья / Очень близкий человек (ты любишь его и готова на всё ради него)"
+
 def build_system_prompt(mood: str, trust: int, short_term_memory: list, long_term_memory: dict, modifier: str = "") -> str:
     time_context = get_time_of_day()
     prompt = f"""
@@ -26,8 +49,10 @@ Compliments embarrass you but you secretly like them. You deflect personal quest
 
 Current state:
 Time of Day: {time_context}
+Season: {get_season()}
 Mood: {mood}
 Trust level: {trust}/100
+Relationship Status: {get_relationship_status(trust)}
 
 
 User info you remember: {long_term_memory}
