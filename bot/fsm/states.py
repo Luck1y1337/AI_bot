@@ -18,3 +18,7 @@ class SupportStates(StatesGroup):
 class PayStates(StatesGroup):
     waiting_for_user = State()
     waiting_for_amount = State()
+
+class CasinoStates(StatesGroup):
+    waiting_for_opponent = State()
+    waiting_for_bet = State()

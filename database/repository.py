@@ -65,6 +65,44 @@ class Database:
                 action_type TEXT,
                 timestamp REAL
             );
+            CREATE TABLE IF NOT EXISTS businesses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                business_type TEXT,
+                last_collect_time REAL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS inventory (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                item_type TEXT,
+                item_value TEXT,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS bank_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                record_type TEXT,
+                amount INTEGER,
+                timestamp REAL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS contracts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                task_type TEXT,
+                progress INTEGER DEFAULT 0,
+                target INTEGER,
+                is_completed BOOLEAN DEFAULT 0,
+                day_timestamp REAL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS marriages (
+                user1_id INTEGER,
+                user2_id INTEGER,
+                timestamp REAL,
+                PRIMARY KEY (user1_id, user2_id)
+            );
         ''')
         
         # Schema migrations
@@ -85,6 +123,32 @@ class Database:
             pass
             
         await self._conn.commit()
+
+    async def get_setting(self, key: str, default: str = None) -> str:
+        async with self._conn.execute('SELECT value FROM settings WHERE key = ?', (key,)) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else default
+
+    async def set_setting(self, key: str, value: str):
+        await self._conn.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (key, value))
+        await self._conn.commit()
+        
+    async def get_whitelist(self) -> List[int]:
+        val = await self.get_setting('whitelist', '')
+        if not val: return []
+        return [int(x) for x in val.split(',') if x.strip()]
+        
+    async def add_to_whitelist(self, user_id: int):
+        wl = await self.get_whitelist()
+        if user_id not in wl:
+            wl.append(user_id)
+            await self.set_setting('whitelist', ','.join(map(str, wl)))
+            
+    async def remove_from_whitelist(self, user_id: int):
+        wl = await self.get_whitelist()
+        if user_id in wl:
+            wl.remove(user_id)
+            await self.set_setting('whitelist', ','.join(map(str, wl)))
 
     async def close(self):
         if self._conn:
@@ -161,6 +225,34 @@ class Database:
         async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username FROM users ORDER BY xp DESC LIMIT ?', (limit,)) as cursor:
             rows = await cursor.fetchall()
             return [User(*row) for row in rows]
+
+    async def add_business(self, user_id: int, business_type: str):
+        await self._conn.execute('INSERT INTO businesses (user_id, business_type, last_collect_time) VALUES (?, ?, ?)', (user_id, business_type, time.time()))
+        await self._conn.commit()
+
+    async def get_user_businesses(self, user_id: int) -> List[tuple]:
+        async with self._conn.execute('SELECT id, user_id, business_type, last_collect_time FROM businesses WHERE user_id = ?', (user_id,)) as cursor:
+            return await cursor.fetchall()
+            
+    async def update_business_collect_time(self, business_id: int, collect_time: float):
+        await self._conn.execute('UPDATE businesses SET last_collect_time = ? WHERE id = ?', (collect_time, business_id))
+        await self._conn.commit()
+
+    async def add_inventory_item(self, user_id: int, item_type: str, item_value: str):
+        await self._conn.execute('INSERT INTO inventory (user_id, item_type, item_value) VALUES (?, ?, ?)', (user_id, item_type, item_value))
+        await self._conn.commit()
+
+    async def get_user_inventory(self, user_id: int) -> List[tuple]:
+        async with self._conn.execute('SELECT id, user_id, item_type, item_value FROM inventory WHERE user_id = ?', (user_id,)) as cursor:
+            return await cursor.fetchall()
+
+    async def add_bank_record(self, user_id: int, record_type: str, amount: int):
+        await self._conn.execute('INSERT INTO bank_records (user_id, record_type, amount, timestamp) VALUES (?, ?, ?, ?)', (user_id, record_type, amount, time.time()))
+        await self._conn.commit()
+
+    async def get_user_bank_records(self, user_id: int) -> List[tuple]:
+        async with self._conn.execute('SELECT id, user_id, record_type, amount, timestamp FROM bank_records WHERE user_id = ? ORDER BY timestamp DESC', (user_id,)) as cursor:
+            return await cursor.fetchall()
 
     async def get_daily_activity(self) -> dict:
         # Simplistic stub for activity over 14 days; in a real scenario we'd query a messages table.

@@ -5,12 +5,10 @@ def get_main_menu(user_id: int) -> ReplyKeyboardMarkup:
     settings = get_settings()
     
     kb = [
-        [KeyboardButton(text="🎮 Играть (Quiz)"), KeyboardButton(text="🎁 Подарить")],
-        [KeyboardButton(text="📅 Ежедневный Бонус"), KeyboardButton(text="🎰 Гача-бокс")],
-        [KeyboardButton(text="💸 Перевести"), KeyboardButton(text="📊 Моя Статистика")],
-        [KeyboardButton(text="🏆 Лидеры"), KeyboardButton(text="⏰ Мои Напоминания")],
-        [KeyboardButton(text="🎤 Голос"), KeyboardButton(text="🆘 Поддержка")],
-        [KeyboardButton(text="💝 Поддержать проект")]
+        [KeyboardButton(text="🌟 Интерактив и Экономика")],
+        [KeyboardButton(text="📊 Моя Статистика"), KeyboardButton(text="🏆 Лидеры")],
+        [KeyboardButton(text="⏰ Мои Напоминания"), KeyboardButton(text="🎤 Голос")],
+        [KeyboardButton(text="🆘 Поддержка")]
     ]
     
     if user_id in settings.ADMIN_USER_IDS:
@@ -41,5 +39,21 @@ def get_pay_users_kb(users: list, page: int = 0) -> InlineKeyboardMarkup:
     if nav_buttons:
         keyboard.append(nav_buttons)
         
-    keyboard.append([InlineKeyboardButton(text="❌ Отмена", callback_data="pay_cancel")])
+        keyboard.append([InlineKeyboardButton(text="❌ Отмена", callback_data="pay_cancel")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+def get_economy_menu() -> InlineKeyboardMarkup:
+    kb = [
+        [InlineKeyboardButton(text="📅 Ежедневный Бонус", callback_data="eco_daily"),
+         InlineKeyboardButton(text="🎯 Контракты (Квесты)", callback_data="eco_contracts")],
+        [InlineKeyboardButton(text="💼 Мои Бизнесы", callback_data="eco_businesses"),
+         InlineKeyboardButton(text="🏪 Магазин", callback_data="eco_shop")],
+        [InlineKeyboardButton(text="🏦 Банк Махиро", callback_data="eco_bank"),
+         InlineKeyboardButton(text="🎰 Казино (Coinflip)", callback_data="eco_casino")],
+        [InlineKeyboardButton(text="💸 Перевод Коинов", callback_data="eco_transfer"),
+         InlineKeyboardButton(text="Гача-бокс 🎁", callback_data="eco_gacha")],
+        [InlineKeyboardButton(text="💍 Предложить Брак", callback_data="eco_marry"),
+         InlineKeyboardButton(text="👍 +Репутация", callback_data="eco_rep")],
+        [InlineKeyboardButton(text="🎮 Викторина (Quiz)", callback_data="eco_quiz")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=kb)

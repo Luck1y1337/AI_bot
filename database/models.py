@@ -42,14 +42,33 @@ class Achievement:
     achievement_type: str
 
 @dataclass
-class Promocode:
-    code: str
-    reward_coins: int
-    reward_xp: int
-    max_uses: int
-    current_uses: int
+class Business:
+    id: int
+    user_id: int
+    business_type: str
+    last_collect_time: float
 
 @dataclass
-class Setting:
-    key: str
-    value: str
+class InventoryItem:
+    id: int
+    user_id: int
+    item_type: str
+    item_value: str
+
+@dataclass
+class BankRecord:
+    id: int
+    user_id: int
+    record_type: str # 'deposit' or 'loan'
+    amount: int
+    timestamp: float
+
+@dataclass
+class Contract:
+    id: int
+    user_id: int
+    task_type: str
+    progress: int
+    target: int
+    is_completed: bool
+    day_timestamp: float
