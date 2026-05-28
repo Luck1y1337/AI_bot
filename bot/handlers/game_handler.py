@@ -55,5 +55,6 @@ async def cmd_leaderboard(message: Message, db: Database):
     top_users = await db.get_top_users_by_xp(10)
     text = "🏆 **Таблица Лидеров (XP)** 🏆\n\n"
     for i, u in enumerate(top_users):
-        text += f"{i+1}. Пользователь {u.id} - {u.xp} XP\n"
+        display_name = f"@{u.username}" if u.username else f"ID {u.id}"
+        text += f"{i+1}. {display_name} - {u.xp} XP\n"
     await message.answer(text)

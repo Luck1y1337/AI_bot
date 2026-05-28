@@ -11,6 +11,16 @@ class User:
     coins: int
     is_banned: bool
     last_daily_time: float = 0.0
+    username: str = ""
+
+@dataclass
+class Transaction:
+    id: int
+    sender_id: int
+    receiver_id: int
+    amount: int
+    action_type: str
+    timestamp: float
 
 @dataclass
 class Reminder:

@@ -1,7 +1,7 @@
 import aiosqlite
 from typing import List, Optional
 import time
-from .models import User, Reminder, Gift, Achievement
+from .models import User, Reminder, Gift, Achievement, Transaction
 
 class Database:
     def __init__(self, db_path: str = "data/mahiro.db"):
@@ -24,7 +24,8 @@ class Database:
                 xp INTEGER DEFAULT 0,
                 coins INTEGER DEFAULT 0,
                 is_banned BOOLEAN DEFAULT 0,
-                last_daily_time REAL DEFAULT 0
+                last_daily_time REAL DEFAULT 0,
+                username TEXT DEFAULT ""
             );
             CREATE TABLE IF NOT EXISTS reminders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,6 +57,14 @@ class Database:
                 key TEXT PRIMARY KEY,
                 value TEXT
             );
+            CREATE TABLE IF NOT EXISTS transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sender_id INTEGER,
+                receiver_id INTEGER,
+                amount INTEGER,
+                action_type TEXT,
+                timestamp REAL
+            );
         ''')
         
         # Schema migrations
@@ -70,6 +79,11 @@ class Database:
         except Exception:
             pass
             
+        try:
+            await self._conn.execute('ALTER TABLE users ADD COLUMN username TEXT DEFAULT ""')
+        except Exception:
+            pass
+            
         await self._conn.commit()
 
     async def close(self):
@@ -77,25 +91,35 @@ class Database:
             await self._conn.close()
 
     async def get_user(self, user_id: int) -> User:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time FROM users WHERE id = ?', (user_id,)) as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username FROM users WHERE id = ?', (user_id,)) as cursor:
             row = await cursor.fetchone()
             if row:
                 return User(*row)
             # Create user if not exists
             await self._conn.execute('INSERT INTO users (id) VALUES (?)', (user_id,))
             await self._conn.commit()
-            return User(user_id, 50, 'normal', 0, 0, 0, False, 0.0)
+            return User(user_id, 50, 'normal', 0, 0, 0, False, 0.0, "")
 
     async def update_user(self, user: User):
         await self._conn.execute('''
-            UPDATE users SET trust = ?, mood = ?, message_count = ?, xp = ?, coins = ?, is_banned = ?, last_daily_time = ? WHERE id = ?
-        ''', (user.trust, user.mood, user.message_count, user.xp, user.coins, user.is_banned, user.last_daily_time, user.id))
+            UPDATE users SET trust = ?, mood = ?, message_count = ?, xp = ?, coins = ?, is_banned = ?, last_daily_time = ?, username = ? WHERE id = ?
+        ''', (user.trust, user.mood, user.message_count, user.xp, user.coins, user.is_banned, user.last_daily_time, user.username, user.id))
         await self._conn.commit()
         
     async def get_all_users(self) -> List[User]:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time FROM users') as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username FROM users') as cursor:
             rows = await cursor.fetchall()
             return [User(*row) for row in rows]
+            
+    async def add_transaction(self, sender_id: int, receiver_id: int, amount: int, action_type: str):
+        await self._conn.execute('INSERT INTO transactions (sender_id, receiver_id, amount, action_type, timestamp) VALUES (?, ?, ?, ?, ?)', 
+                                 (sender_id, receiver_id, amount, action_type, time.time()))
+        await self._conn.commit()
+        
+    async def get_transactions(self, limit: int = 20) -> List[Transaction]:
+        async with self._conn.execute('SELECT id, sender_id, receiver_id, amount, action_type, timestamp FROM transactions ORDER BY timestamp DESC LIMIT ?', (limit,)) as cursor:
+            rows = await cursor.fetchall()
+            return [Transaction(*row) for row in rows]
 
     async def add_reminder(self, user_id: int, text: str, fire_at: float):
         await self._conn.execute('INSERT INTO reminders (user_id, text, fire_at) VALUES (?, ?, ?)', (user_id, text, fire_at))
@@ -134,7 +158,7 @@ class Database:
             return [Achievement(*row) for row in rows]
 
     async def get_top_users_by_xp(self, limit: int = 10) -> List[User]:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned FROM users ORDER BY xp DESC LIMIT ?', (limit,)) as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username FROM users ORDER BY xp DESC LIMIT ?', (limit,)) as cursor:
             rows = await cursor.fetchall()
             return [User(*row) for row in rows]
 

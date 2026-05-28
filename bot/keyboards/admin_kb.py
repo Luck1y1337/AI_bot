@@ -8,7 +8,8 @@ def get_admin_main_kb() -> InlineKeyboardMarkup:
          InlineKeyboardButton(text="👥 Пользователи", callback_data="admin_users_list")],
         [InlineKeyboardButton(text="🪙 Управление Коинами", callback_data="admin_coins"),
          InlineKeyboardButton(text="✨ Управление XP", callback_data="admin_xp")],
-        [InlineKeyboardButton(text="💬 Чтение Истории", callback_data="admin_history")],
+        [InlineKeyboardButton(text="💬 Чтение Истории", callback_data="admin_history"),
+         InlineKeyboardButton(text="📜 История транзакций", callback_data="admin_transactions")],
         [InlineKeyboardButton(text="🔐 Whitelist", callback_data="admin_whitelist_menu"),
          InlineKeyboardButton(text="🚫 Blacklist", callback_data="admin_blacklist_menu")],
         [InlineKeyboardButton(text="📢 Рассылка", callback_data="admin_broadcast"),
@@ -62,12 +63,13 @@ def get_users_selection_kb(users: list, action: str, page: int = 0) -> InlineKey
     end_idx = start_idx + items_per_page
     
     for user in users[start_idx:end_idx]:
+        display_name = f"@{user.username}" if user.username else f"ID: {user.id}"
         if action == "coin":
-            text = f"ID: {user.id} | 🪙 {user.coins}"
+            text = f"{display_name} | 🪙 {user.coins}"
         elif action == "xp":
-            text = f"ID: {user.id} | ✨ {user.xp}"
+            text = f"{display_name} | ✨ {user.xp}"
         else:
-            text = f"ID: {user.id} | 💬 {user.message_count}"
+            text = f"{display_name} | 💬 {user.message_count}"
         
         keyboard.append([InlineKeyboardButton(text=text, callback_data=f"admin_selectuser_{action}_{user.id}")])
     

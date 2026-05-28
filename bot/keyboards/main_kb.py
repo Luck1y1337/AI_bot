@@ -7,9 +7,10 @@ def get_main_menu(user_id: int) -> ReplyKeyboardMarkup:
     kb = [
         [KeyboardButton(text="🎮 Играть (Quiz)"), KeyboardButton(text="🎁 Подарить")],
         [KeyboardButton(text="📅 Ежедневный Бонус"), KeyboardButton(text="🎰 Гача-бокс")],
-        [KeyboardButton(text="📊 Моя Статистика"), KeyboardButton(text="🏆 Лидеры")],
-        [KeyboardButton(text="⏰ Мои Напоминания"), KeyboardButton(text="🎤 Голос")],
-        [KeyboardButton(text="🆘 Поддержка"), KeyboardButton(text="💝 Поддержать проект")]
+        [KeyboardButton(text="💸 Перевести"), KeyboardButton(text="📊 Моя Статистика")],
+        [KeyboardButton(text="🏆 Лидеры"), KeyboardButton(text="⏰ Мои Напоминания")],
+        [KeyboardButton(text="🎤 Голос"), KeyboardButton(text="🆘 Поддержка")],
+        [KeyboardButton(text="💝 Поддержать проект")]
     ]
     
     if user_id in settings.ADMIN_USER_IDS:
@@ -25,8 +26,9 @@ def get_pay_users_kb(users: list, page: int = 0) -> InlineKeyboardMarkup:
     current_users = users[start_idx:end_idx]
     
     for user in current_users:
+        display_name = f"@{user.username}" if user.username else f"ID: {user.id}"
         keyboard.append([InlineKeyboardButton(
-            text=f"ID: {user.id} | Баланс: {user.coins} 🪙", 
+            text=f"{display_name} | Баланс: {user.coins} 🪙", 
             callback_data=f"pay_select_{user.id}"
         )])
         

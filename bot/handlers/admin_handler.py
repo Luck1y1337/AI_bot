@@ -49,6 +49,33 @@ async def admin_stats(callback: CallbackQuery, db: Database):
     text = f"📊 **Статистика**\nПользователей: {len(users)}\nСообщений: {total_msgs}"
     await callback.message.edit_text(text, reply_markup=get_back_button("admin_main"))
 
+@router.callback_query(F.data == "admin_transactions")
+async def admin_transactions(callback: CallbackQuery, db: Database):
+    if not is_admin(callback.from_user.id): return
+    transactions = await db.get_transactions(30)
+    if not transactions:
+        await callback.message.edit_text("📜 История транзакций пуста.", reply_markup=get_back_button("admin_main"))
+        return
+        
+    text = "📜 **Последние 30 транзакций**\n\n"
+    from datetime import datetime
+    for t in transactions:
+        dt = datetime.fromtimestamp(t.timestamp).strftime('%Y-%m-%d %H:%M')
+        if t.action_type == "daily_bonus":
+            text += f"[{dt}] 📅 БОНУС: User {t.receiver_id} получил {t.amount} 🪙\n"
+        elif t.action_type == "gacha_roll":
+            text += f"[{dt}] 🎰 ГАЧА: User {t.sender_id} потратил {t.amount} 🪙\n"
+        elif t.action_type == "user_transfer":
+            text += f"[{dt}] 💸 ПЕРЕВОД: User {t.sender_id} -> User {t.receiver_id} ({t.amount} 🪙)\n"
+        elif t.action_type == "admin_add":
+            text += f"[{dt}] 👑 АДМИН: Выдано {t.amount} 🪙 юзеру {t.receiver_id}\n"
+        elif t.action_type == "admin_remove":
+            text += f"[{dt}] 👑 АДМИН: Забрано {t.amount} 🪙 у юзера {t.receiver_id}\n"
+        else:
+            text += f"[{dt}] ❓ OTHER: {t.amount} 🪙 ({t.action_type})\n"
+            
+    await callback.message.edit_text(text, reply_markup=get_back_button("admin_main"))
+
 @router.callback_query(F.data == "admin_settings")
 async def admin_settings(callback: CallbackQuery):
     if not is_admin(callback.from_user.id): return
@@ -127,8 +154,13 @@ async def process_coin_amount(message: Message, state: FSMContext, db: Database)
         data = await state.get_data()
         user_id = data.get("coin_user_id")
         user = await db.get_user(user_id)
+        diff = amount - user.coins
         user.coins = amount
         await db.update_user(user)
+        if diff > 0:
+            await db.add_transaction(message.from_user.id, user_id, diff, "admin_add")
+        elif diff < 0:
+            await db.add_transaction(message.from_user.id, user_id, abs(diff), "admin_remove")
         await message.answer(f"Баланс пользователя {user_id} успешно изменен на {amount} 🪙.", reply_markup=get_back_button("admin_main"))
     except:
         await message.answer("Пожалуйста, отправьте корректное число.", reply_markup=get_back_button("admin_main"))

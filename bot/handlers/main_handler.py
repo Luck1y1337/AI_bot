@@ -23,6 +23,10 @@ old_trigger_system = TriggerSystem()
 @router.message(CommandStart())
 async def cmd_start(message: Message, db: Database, bot: Bot):
     user = await db.get_user(message.from_user.id)
+    if user.username != (message.from_user.username or ""):
+        user.username = message.from_user.username or ""
+        await db.update_user(user)
+        
     if user.message_count == 0:
         from utils.admin_alerts import notify_admins
         await notify_admins(bot, f"Новый пользователь начал использовать бота: {message.from_user.id} (@{message.from_user.username})")
@@ -57,6 +61,7 @@ async def cmd_daily(message: Message, db: Database):
         user.xp += 10
         user.last_daily_time = now
         await db.update_user(user)
+        await db.add_transaction(0, user.id, 50, "daily_bonus")
         await message.answer("Ура! Ты получил(а) ежедневный бонус:\n🪙 50 MahiroCoins\n✨ 10 XP\n\nПриходи завтра!")
     else:
         left = int(86400 - (now - user.last_daily_time))
@@ -89,6 +94,7 @@ async def cmd_gacha(message: Message, db: Database):
         reward = "Упс, почти пусто. Но ты нашел 10 🪙 на дне коробки."
         
     await db.update_user(user)
+    await db.add_transaction(user.id, 0, cost, "gacha_roll")
     await message.answer(f"🎰 **Крутим Гачу...**\n\n{reward}\n\nТвой баланс: {user.coins} 🪙")
 
 @router.message(F.text.in_(["/pay", "💸 Перевести"]))
@@ -148,6 +154,7 @@ async def process_pay_amount(message: Message, db: Database, state: FSMContext, 
     target.coins += amount
     await db.update_user(sender)
     await db.update_user(target)
+    await db.add_transaction(sender.id, target.id, amount, "user_transfer")
     
     await message.answer(f"Успешно переведено {amount} 🪙 пользователю {target_id}!")
     try:
@@ -240,6 +247,9 @@ async def process_message(message: Message, db: Database, mistral: MistralClient
             return
             
     user = await db.get_user(user_id)
+    if user.username != (message.from_user.username or ""):
+        user.username = message.from_user.username or ""
+        
     if user.is_banned:
         return
         
