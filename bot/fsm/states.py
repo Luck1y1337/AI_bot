@@ -22,3 +22,6 @@ class PayStates(StatesGroup):
 class CasinoStates(StatesGroup):
     waiting_for_opponent = State()
     waiting_for_bet = State()
+
+class MarryStates(StatesGroup):
+    waiting_for_partner = State()

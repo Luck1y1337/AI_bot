@@ -254,6 +254,14 @@ class Database:
         async with self._conn.execute('SELECT id, user_id, record_type, amount, timestamp FROM bank_records WHERE user_id = ? ORDER BY timestamp DESC', (user_id,)) as cursor:
             return await cursor.fetchall()
 
+    async def add_marriage(self, user1_id: int, user2_id: int):
+        await self._conn.execute('INSERT INTO marriages (user1_id, user2_id, timestamp) VALUES (?, ?, ?)', (user1_id, user2_id, time.time()))
+        await self._conn.commit()
+
+    async def get_marriage(self, user_id: int) -> Optional[tuple]:
+        async with self._conn.execute('SELECT user1_id, user2_id, timestamp FROM marriages WHERE user1_id = ? OR user2_id = ?', (user_id, user_id)) as cursor:
+            return await cursor.fetchone()
+
     async def get_daily_activity(self) -> dict:
         # Simplistic stub for activity over 14 days; in a real scenario we'd query a messages table.
         # Here we just mock it for the chart since the requirement says "message count".

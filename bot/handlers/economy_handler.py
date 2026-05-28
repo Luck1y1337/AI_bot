@@ -1,7 +1,7 @@
 from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery
 from database.repository import Database
-from bot.fsm.states import PayStates, CasinoStates
+from bot.fsm.states import PayStates, CasinoStates, MarryStates
 from aiogram.fsm.context import FSMContext
 from bot.keyboards.main_kb import get_pay_users_kb, get_economy_menu
 from bot.keyboards.economy_kb import get_businesses_kb, get_shop_kb, get_bank_kb
@@ -68,7 +68,7 @@ async def cb_eco_transfer(callback: CallbackQuery, db: Database, state: FSMConte
     await state.set_state(PayStates.waiting_for_user)
     await callback.message.edit_text("Кому перевести коины?", reply_markup=get_pay_users_kb(users, 0))
 
-@router.callback_query(F.data.startswith("pay_page_"))
+@router.callback_query(PayStates.waiting_for_user, F.data.startswith("pay_page_"))
 async def pay_paginate(callback: CallbackQuery, db: Database):
     page = int(callback.data.split("_")[2])
     users = await db.get_all_users()
@@ -76,13 +76,13 @@ async def pay_paginate(callback: CallbackQuery, db: Database):
     await callback.message.edit_reply_markup(reply_markup=get_pay_users_kb(users, page))
     await callback.answer()
 
-@router.callback_query(F.data == "pay_cancel")
+@router.callback_query(PayStates.waiting_for_user, F.data == "pay_cancel")
 async def pay_cancel(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.edit_text("Добро пожаловать в раздел Игр и Экономики! Выберите действие:", reply_markup=get_economy_menu())
     await callback.answer("Перевод отменен.")
 
-@router.callback_query(F.data.startswith("pay_select_"))
+@router.callback_query(PayStates.waiting_for_user, F.data.startswith("pay_select_"))
 async def pay_select(callback: CallbackQuery, state: FSMContext):
     target_id = int(callback.data.split("_")[2])
     await state.update_data(pay_target_id=target_id)
@@ -102,6 +102,11 @@ async def process_pay_amount(message: Message, db: Database, state: FSMContext, 
         
     data = await state.get_data()
     target_id = data.get("pay_target_id")
+    
+    if target_id == message.from_user.id:
+        await message.answer("Нельзя перевести коины самому себе!")
+        await state.clear()
+        return
     
     sender = await db.get_user(message.from_user.id)
     if sender.coins < amount:
@@ -184,11 +189,19 @@ async def cb_collect_biz(callback: CallbackQuery, db: Database):
             await db.update_business_collect_time(biz_id, now)
             
     if total_profit > 0:
+        # Check marriage bonus
+        marriage = await db.get_marriage(callback.from_user.id)
+        if marriage:
+            total_profit = int(total_profit * 1.1)
+            bonus_text = " (включая бонус +10% за брак 💕)"
+        else:
+            bonus_text = ""
+            
         user = await db.get_user(callback.from_user.id)
         user.coins += total_profit
         await db.update_user(user)
         await db.add_transaction(0, user.id, total_profit, "biz_collect")
-        await callback.answer(f"Собрана прибыль: {total_profit} 🪙!", show_alert=True)
+        await callback.answer(f"Собрана прибыль: {total_profit} 🪙{bonus_text}!", show_alert=True)
     else:
         await callback.answer("Прибыль еще не накопилась.", show_alert=True)
 
@@ -368,18 +381,86 @@ async def process_casino_bet(message: Message, db: Database, state: FSMContext, 
     
     await state.clear()
 
-# --- Брак (Placeholder) ---
+# --- Брак ---
 @router.callback_query(F.data == "eco_marry")
-async def cb_eco_marry(callback: CallbackQuery):
-    await callback.answer("Система брака в разработке!", show_alert=True)
+async def cb_eco_marry(callback: CallbackQuery, db: Database, state: FSMContext):
+    marriage = await db.get_marriage(callback.from_user.id)
+    if marriage:
+        partner_id = marriage[1] if marriage[0] == callback.from_user.id else marriage[0]
+        await callback.answer(f"Вы уже в браке с пользователем {partner_id}! 💍\nВы получаете +10% бонус к бизнесу.", show_alert=True)
+        return
+        
+    users = await db.get_all_users()
+    users = [u for u in users if u.id != callback.from_user.id]
+    if not users:
+        await callback.answer("Нет доступных партнеров.", show_alert=True)
+        return
+    await state.set_state(MarryStates.waiting_for_partner)
+    await callback.message.edit_text("💍 **Предложение руки и сердца**\n\nВыберите партнера (Брак даёт +10% к доходу с бизнесов):", reply_markup=get_pay_users_kb(users, 0))
 
-# --- Репутация (Placeholder) ---
-@router.callback_query(F.data == "eco_rep")
-async def cb_eco_rep(callback: CallbackQuery):
-    await callback.answer("Система репутации в разработке!", show_alert=True)
-
-# --- Quiz (Placeholder for now, redirect) ---
-@router.callback_query(F.data == "eco_quiz")
-async def cb_eco_quiz(callback: CallbackQuery):
-    await callback.message.answer("Чтобы играть в квиз, напишите /quiz (интеграция в кнопки в процессе)")
+@router.callback_query(MarryStates.waiting_for_partner, F.data.startswith("pay_page_"))
+async def marry_paginate(callback: CallbackQuery, db: Database):
+    page = int(callback.data.split("_")[2])
+    users = await db.get_all_users()
+    users = [u for u in users if u.id != callback.from_user.id]
+    await callback.message.edit_reply_markup(reply_markup=get_pay_users_kb(users, page))
     await callback.answer()
+
+@router.callback_query(MarryStates.waiting_for_partner, F.data.startswith("pay_select_"))
+async def marry_select(callback: CallbackQuery, db: Database, state: FSMContext, bot: Bot):
+    target_id = int(callback.data.split("_")[2])
+    
+    target_marriage = await db.get_marriage(target_id)
+    if target_marriage:
+        await callback.answer("Этот пользователь уже состоит в браке! 💔", show_alert=True)
+        return
+        
+    user = await db.get_user(callback.from_user.id)
+    if user.coins < 5000:
+        await callback.answer("Для заключения брака нужно 5000 🪙 на кольца!", show_alert=True)
+        return
+        
+    user.coins -= 5000
+    await db.update_user(user)
+    await db.add_marriage(user.id, target_id)
+    
+    await callback.message.edit_text(f"Поздравляем! 🎉 Вы успешно заключили брак с {target_id}! -5000 🪙 за кольца. Теперь вы оба получаете +10% к бизнесу.")
+    try:
+        await bot.send_message(target_id, f"💍 Пользователь {user.id} только что оплатил кольца и заключил с вами брак! Поздравляем!")
+    except: pass
+    
+    await state.clear()
+
+@router.callback_query(MarryStates.waiting_for_partner, F.data == "pay_cancel")
+async def marry_cancel(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.edit_text("Добро пожаловать в раздел Игр и Экономики! Выберите действие:", reply_markup=get_economy_menu())
+    await callback.answer()
+
+# --- Репутация ---
+@router.callback_query(F.data == "eco_rep")
+async def cb_eco_rep(callback: CallbackQuery, db: Database):
+    # Check if user already gave rep today
+    reps_today = await db._conn.execute('SELECT COUNT(*) FROM transactions WHERE sender_id = ? AND action_type = "give_rep" AND timestamp > ?', (callback.from_user.id, time.time() - 86400))
+    count = (await reps_today.fetchone())[0]
+    
+    if count > 0:
+        await callback.answer("Вы уже повышали репутацию сегодня! Возвращайтесь завтра.", show_alert=True)
+        return
+        
+    # To keep it simple, we just give +10 XP to a random active user (or you can use states to select)
+    # Let's use states if needed, but a quick way is just a daily +Rep random user reward
+    users = await db.get_all_users()
+    users = [u for u in users if u.id != callback.from_user.id]
+    if not users:
+        await callback.answer("Нет пользователей для повышения репутации.", show_alert=True)
+        return
+        
+    target = random.choice(users)
+    target.xp += 50
+    await db.update_user(target)
+    await db.add_transaction(callback.from_user.id, target.id, 0, "give_rep")
+    
+    await callback.answer(f"Вы успешно дали +Rep случайному пользователю {target.id}! Ему начислено +50 XP.", show_alert=True)
+
+

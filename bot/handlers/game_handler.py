@@ -27,6 +27,11 @@ async def cmd_quiz(message: Message):
     q = random.choice(QUESTIONS)
     await message.answer(q["q"], reply_markup=get_quiz_kb(q["opts"], q["ans"]))
 
+@router.callback_query(F.data == "eco_quiz")
+async def cb_eco_quiz(callback: CallbackQuery):
+    q = random.choice(QUESTIONS)
+    await callback.message.edit_text(q["q"], reply_markup=get_quiz_kb(q["opts"], q["ans"]))
+
 @router.callback_query(F.data.startswith("quiz_"))
 async def process_quiz(callback: CallbackQuery, db: Database):
     is_correct = callback.data.split("_")[1] == "1"
@@ -55,6 +60,10 @@ async def cmd_leaderboard(message: Message, db: Database):
     top_users = await db.get_top_users_by_xp(10)
     text = "🏆 **Таблица Лидеров (XP)** 🏆\n\n"
     for i, u in enumerate(top_users):
+        inventory = await db.get_user_inventory(u.id)
+        titles = [item[3] for item in inventory if item[2] == 'title']
+        title_text = f" [{titles[0]}]" if titles else ""
+        
         display_name = f"@{u.username}" if u.username else f"ID {u.id}"
-        text += f"{i+1}. {display_name} - {u.xp} XP\n"
+        text += f"{i+1}.{title_text} {display_name} - {u.xp} XP\n"
     await message.answer(text)

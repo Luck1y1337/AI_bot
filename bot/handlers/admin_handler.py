@@ -403,9 +403,11 @@ async def admin_whitelist_menu(callback: CallbackQuery, db: Database):
     await callback.message.edit_text("🔐 УПРАВЛЕНИЕ WHITELIST", reply_markup=get_whitelist_menu(status, count))
 
 @router.callback_query(F.data == "admin_blacklist_menu")
-async def admin_blacklist_menu(callback: CallbackQuery):
+async def admin_blacklist_menu(callback: CallbackQuery, db: Database):
     if not is_admin(callback.from_user.id): return
-    count = len(settings.BLACKLIST_USER_IDS)
+    users = await db.get_all_users()
+    banned_users = [u for u in users if u.is_banned]
+    count = len(banned_users)
     await callback.message.edit_text("🚫 УПРАВЛЕНИЕ BLACKLIST", reply_markup=get_blacklist_menu(count))
 
 @router.callback_query(F.data == "admin_toggle_whitelist")
@@ -427,9 +429,11 @@ async def admin_list_whitelist(callback: CallbackQuery, db: Database):
     await callback.message.edit_text(text, reply_markup=get_back_button("admin_whitelist_menu"))
 
 @router.callback_query(F.data == "admin_list_blacklist")
-async def admin_list_blacklist(callback: CallbackQuery):
+async def admin_list_blacklist(callback: CallbackQuery, db: Database):
     if not is_admin(callback.from_user.id): return
-    text = f"🚫 BLACKLIST ({len(settings.BLACKLIST_USER_IDS)})\n\n" + "\n".join(str(i) for i in settings.BLACKLIST_USER_IDS)
+    users = await db.get_all_users()
+    banned_users = [u.id for u in users if u.is_banned]
+    text = f"🚫 BLACKLIST ({len(banned_users)})\n\n" + "\n".join(str(i) for i in banned_users)
     await callback.message.edit_text(text, reply_markup=get_back_button("admin_blacklist_menu"))
 
 @router.callback_query(F.data == "admin_whitelist_add")
@@ -452,7 +456,7 @@ async def process_whitelist(message: Message, state: FSMContext, db: Database):
 @router.callback_query(F.data == "admin_whitelist_remove")
 async def admin_whitelist_remove(callback: CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id): return
-    await state.set_state(AdminStates.waiting_for_blacklist) # Resusing for convenience or maybe create new state
+    await state.set_state(AdminStates.waiting_for_blacklist)
     await callback.message.edit_text("Чтобы удалить юзера из вайтлиста, забаньте его через Blacklist меню или через команду /ban.", reply_markup=get_back_button("admin_whitelist_menu"))
 
 @router.callback_query(F.data == "admin_blacklist_add")
@@ -466,12 +470,29 @@ async def process_blacklist(message: Message, state: FSMContext, db: Database):
     if not is_admin(message.from_user.id): return
     try:
         uid = int(message.text)
-        if uid not in settings.BLACKLIST_USER_IDS:
-            settings.BLACKLIST_USER_IDS.append(uid)
         user = await db.get_user(uid)
         user.is_banned = True
         await db.update_user(user)
         await message.answer(f"Пользователь {uid} забанен.", reply_markup=get_back_button("admin_blacklist_menu"))
+    except:
+        await message.answer("Неверный ID пользователя.", reply_markup=get_back_button("admin_blacklist_menu"))
+    await state.clear()
+
+@router.callback_query(F.data == "admin_blacklist_remove")
+async def admin_blacklist_remove(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id): return
+    await state.set_state(AdminStates.waiting_for_unblacklist)
+    await callback.message.edit_text("Отправьте ID пользователя, чтобы разбанить его:", reply_markup=get_back_button("admin_blacklist_menu"))
+
+@router.message(AdminStates.waiting_for_unblacklist)
+async def process_unblacklist(message: Message, state: FSMContext, db: Database):
+    if not is_admin(message.from_user.id): return
+    try:
+        uid = int(message.text)
+        user = await db.get_user(uid)
+        user.is_banned = False
+        await db.update_user(user)
+        await message.answer(f"Пользователь {uid} успешно разбанен.", reply_markup=get_back_button("admin_blacklist_menu"))
     except:
         await message.answer("Неверный ID пользователя.", reply_markup=get_back_button("admin_blacklist_menu"))
     await state.clear()
