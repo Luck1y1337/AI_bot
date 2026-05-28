@@ -22,9 +22,11 @@ import time
 
 os.makedirs("logs", exist_ok=True)
 
+import sys
+
 logging.basicConfig(level=logging.INFO, 
                     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-                    handlers=[logging.FileHandler("logs/mahiro.log"), logging.StreamHandler()])
+                    handlers=[logging.FileHandler("logs/mahiro.log"), logging.StreamHandler(sys.stdout)])
 
 async def check_reminders(bot: Bot, db: Database):
     reminders = await db.get_due_reminders(time.time())
