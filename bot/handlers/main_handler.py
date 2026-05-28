@@ -10,7 +10,10 @@ from media.charts import generate_activity_chart, generate_trust_chart
 from utils.triggers import analyze_triggers
 from ai.triggers import TriggerSystem
 from utils.achievements import check_achievements
-from bot.keyboards.main_kb import get_main_menu
+from bot.keyboards.main_kb import get_main_menu, get_pay_users_kb
+from aiogram.fsm.context import FSMContext
+from bot.fsm.states import PayStates
+from aiogram.types import CallbackQuery
 import random
 import os
 
@@ -88,28 +91,59 @@ async def cmd_gacha(message: Message, db: Database):
     await db.update_user(user)
     await message.answer(f"🎰 **Крутим Гачу...**\n\n{reward}\n\nТвой баланс: {user.coins} 🪙")
 
-@router.message(F.text.startswith("/pay "))
-async def cmd_pay(message: Message, db: Database, bot: Bot):
-    try:
-        parts = message.text.split()
-        target_id = int(parts[1])
-        amount = int(parts[2])
-        if amount <= 0:
-            raise ValueError()
-    except:
-        await message.answer("Формат: `/pay <ID пользователя> <Сумма>`", parse_mode="Markdown")
+@router.message(F.text.in_(["/pay", "💸 Перевести"]))
+async def cmd_pay(message: Message, db: Database, state: FSMContext):
+    users = await db.get_all_users()
+    users = [u for u in users if u.id != message.from_user.id]
+    if not users:
+        await message.answer("В базе данных больше нет пользователей.")
         return
         
+    await message.answer("Выберите пользователя, которому хотите перевести коины:", reply_markup=get_pay_users_kb(users, 0))
+    await state.set_state(PayStates.waiting_for_user)
+
+@router.callback_query(F.data.startswith("pay_page_"))
+async def pay_paginate(callback: CallbackQuery, db: Database):
+    page = int(callback.data.split("_")[2])
+    users = await db.get_all_users()
+    users = [u for u in users if u.id != callback.from_user.id]
+    await callback.message.edit_reply_markup(reply_markup=get_pay_users_kb(users, page))
+    await callback.answer()
+
+@router.callback_query(F.data == "pay_cancel")
+async def pay_cancel(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.delete()
+    await callback.answer("Перевод отменен.")
+
+@router.callback_query(F.data.startswith("pay_select_"))
+async def pay_select(callback: CallbackQuery, state: FSMContext):
+    target_id = int(callback.data.split("_")[2])
+    await state.update_data(pay_target_id=target_id)
+    await state.set_state(PayStates.waiting_for_amount)
+    await callback.message.edit_text(f"Вы выбрали пользователя с ID: {target_id}\n\nВведите сумму перевода (числом):")
+    await callback.answer()
+
+@router.message(PayStates.waiting_for_amount)
+async def process_pay_amount(message: Message, db: Database, state: FSMContext, bot: Bot):
+    try:
+        amount = int(message.text)
+        if amount <= 0:
+            raise ValueError()
+    except ValueError:
+        await message.answer("Пожалуйста, введите корректное положительное число.")
+        return
+        
+    data = await state.get_data()
+    target_id = data.get("pay_target_id")
+    
     sender = await db.get_user(message.from_user.id)
     if sender.coins < amount:
-        await message.answer("Недостаточно средств! 🪙")
+        await message.answer(f"Недостаточно средств! У вас {sender.coins} 🪙.")
+        await state.clear()
         return
         
     target = await db.get_user(target_id)
-    if target.message_count == 0 and target.coins == 0 and target.xp == 0:
-        await message.answer("Пользователь не найден в базе данных.")
-        return
-        
     sender.coins -= amount
     target.coins += amount
     await db.update_user(sender)
@@ -120,6 +154,8 @@ async def cmd_pay(message: Message, db: Database, bot: Bot):
         await bot.send_message(target_id, f"💸 Вам пришел перевод: {amount} 🪙 от пользователя {message.from_user.id}!")
     except:
         pass
+        
+    await state.clear()
 
 @router.message(F.text.in_(["/reset"]))
 async def cmd_reset(message: Message, memory: MemoryManager):

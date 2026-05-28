@@ -14,3 +14,7 @@ class AdminStates(StatesGroup):
 class SupportStates(StatesGroup):
     waiting_for_ticket = State()
     waiting_for_reply = State()
+
+class PayStates(StatesGroup):
+    waiting_for_user = State()
+    waiting_for_amount = State()
