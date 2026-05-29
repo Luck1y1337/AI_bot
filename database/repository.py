@@ -397,6 +397,24 @@ class Database:
         await self._conn.execute('UPDATE clans SET treasury = treasury + ? WHERE id = ?', (amount, clan_id))
         await self._conn.commit()
 
+    async def get_active_clan_war(self, clan_id: int) -> Optional[tuple]:
+        async with self._conn.execute('SELECT id, clan1_id, clan2_id, score1, score2, end_time FROM clan_wars WHERE (clan1_id = ? OR clan2_id = ?) AND end_time > ?', (clan_id, clan_id, time.time())) as cursor:
+            return await cursor.fetchone()
+
+    async def start_clan_war(self, clan1_id: int, clan2_id: int):
+        end_time = time.time() + 86400  # 24 hours war
+        await self._conn.execute('INSERT INTO clan_wars (clan1_id, clan2_id, end_time) VALUES (?, ?, ?)', (clan1_id, clan2_id, end_time))
+        await self._conn.commit()
+
+    async def update_clan_war_score(self, war_id: int, is_clan1: bool, score: int):
+        column = 'score1' if is_clan1 else 'score2'
+        await self._conn.execute(f'UPDATE clan_wars SET {column} = {column} + ? WHERE id = ?', (score, war_id))
+        await self._conn.commit()
+        
+    async def upgrade_clan_base(self, clan_id: int):
+        await self._conn.execute('UPDATE clans SET base_level = base_level + 1 WHERE id = ?', (clan_id,))
+        await self._conn.commit()
+
     # --- Contracts / Quests ---
     async def get_user_contracts(self, user_id: int, start_of_day: float) -> List[tuple]:
         async with self._conn.execute('SELECT id, task_type, progress, target, is_completed, day_timestamp FROM contracts WHERE user_id = ? AND day_timestamp >= ?', (user_id, start_of_day)) as cursor:
