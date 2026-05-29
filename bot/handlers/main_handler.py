@@ -177,7 +177,7 @@ async def process_message(message: Message, db: Database, mistral: MistralClient
     modifier = row[0] if row else ""
     
     # Generate Response
-    sys_prompt = build_system_prompt(user.mood, user.trust, memory.short.get_history(user_id), memory.long.get_user_memory(user_id), modifier)
+    sys_prompt = build_system_prompt(user.mood, user.trust, memory.short.get_history(user_id), memory.long.get_user_memory(user_id), modifier, user.custom_prompt)
     response = await mistral.generate_response(text, sys_prompt)
     memory.short.add_message(user_id, "assistant", response)
     

@@ -25,3 +25,10 @@ class CasinoStates(StatesGroup):
 
 class MarryStates(StatesGroup):
     waiting_for_partner = State()
+
+class ShopStates(StatesGroup):
+    waiting_for_custom_prompt = State()
+
+class ClanStates(StatesGroup):
+    waiting_for_clan_name = State()
+    waiting_for_donate = State()

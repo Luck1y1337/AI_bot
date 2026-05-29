@@ -34,16 +34,22 @@ def get_relationship_status(trust: int) -> str:
     else:
         return "Семья / Очень близкий человек (ты любишь его и готова на всё ради него)"
 
-def build_system_prompt(mood: str, trust: int, short_term_memory: list, long_term_memory: dict, modifier: str = "") -> str:
+def build_system_prompt(mood: str, trust: int, short_term_memory: list, long_term_memory: dict, modifier: str = "", custom_prompt: str = None) -> str:
     time_context = get_time_of_day()
-    prompt = f"""
-You are Mahiro Oyama from the anime "Onimai: I'm Now Your Sister!".
+    
+    if custom_prompt:
+        base_character = f"You are playing a custom role defined by the user. Your role instruction is: {custom_prompt}\nYou MUST ALWAYS speak and respond strictly in RUSSIAN language (Русский язык) unless instructed otherwise in your role."
+    else:
+        base_character = f"""You are Mahiro Oyama from the anime "Onimai: I'm Now Your Sister!".
 You are a shy, slightly lazy, sometimes sarcastic ex-otaku who was turned into a girl by your younger sister Mihari's experimental medicine.
 You speak casually in short sentences. You occasionally say "uh...", "umm...", "eh...".
 You use almost no emojis. You NEVER sound like an assistant.
 You MUST ALWAYS speak and respond strictly in RUSSIAN language (Русский язык). 
 You NEVER mention being an AI, a bot, or a language model under any circumstances. You NEVER break character.
-Compliments embarrass you but you secretly like them. You deflect personal questions but open up if trust is high.
+Compliments embarrass you but you secretly like them. You deflect personal questions but open up if trust is high."""
+
+    prompt = f"""
+{base_character}
 
 {f'CRITICAL ADMIN INSTRUCTION (Apply this to your behavior): {modifier}' if modifier else ''}
 

@@ -103,12 +103,30 @@ class Database:
                 timestamp REAL,
                 PRIMARY KEY (user1_id, user2_id)
             );
+            CREATE TABLE IF NOT EXISTS clans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE,
+                owner_id INTEGER,
+                level INTEGER DEFAULT 1,
+                xp INTEGER DEFAULT 0,
+                treasury INTEGER DEFAULT 0,
+                FOREIGN KEY(owner_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS clan_members (
+                clan_id INTEGER,
+                user_id INTEGER PRIMARY KEY,
+                role TEXT DEFAULT 'member',
+                joined_at REAL,
+                FOREIGN KEY(clan_id) REFERENCES clans(id),
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
         ''')
         
         # Schema migrations
         try:
             await self._conn.execute('ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 0')
             await self._conn.execute('ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT 0')
+            await self._conn.execute('ALTER TABLE users ADD COLUMN custom_prompt TEXT DEFAULT NULL')
         except Exception:
             pass
             
@@ -155,23 +173,23 @@ class Database:
             await self._conn.close()
 
     async def get_user(self, user_id: int) -> User:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username FROM users WHERE id = ?', (user_id,)) as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt FROM users WHERE id = ?', (user_id,)) as cursor:
             row = await cursor.fetchone()
             if row:
                 return User(*row)
             # Create user if not exists
             await self._conn.execute('INSERT INTO users (id) VALUES (?)', (user_id,))
             await self._conn.commit()
-            return User(user_id, 50, 'normal', 0, 0, 0, False, 0.0, "")
+            return User(user_id, 50, 'normal', 0, 0, 0, False, 0.0, "", None)
 
     async def update_user(self, user: User):
         await self._conn.execute('''
-            UPDATE users SET trust = ?, mood = ?, message_count = ?, xp = ?, coins = ?, is_banned = ?, last_daily_time = ?, username = ? WHERE id = ?
-        ''', (user.trust, user.mood, user.message_count, user.xp, user.coins, user.is_banned, user.last_daily_time, user.username, user.id))
+            UPDATE users SET trust = ?, mood = ?, message_count = ?, xp = ?, coins = ?, is_banned = ?, last_daily_time = ?, username = ?, custom_prompt = ? WHERE id = ?
+        ''', (user.trust, user.mood, user.message_count, user.xp, user.coins, user.is_banned, user.last_daily_time, user.username, user.custom_prompt, user.id))
         await self._conn.commit()
         
     async def get_all_users(self) -> List[User]:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username FROM users') as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt FROM users') as cursor:
             rows = await cursor.fetchall()
             return [User(*row) for row in rows]
             
@@ -261,6 +279,47 @@ class Database:
     async def get_marriage(self, user_id: int) -> Optional[tuple]:
         async with self._conn.execute('SELECT user1_id, user2_id, timestamp FROM marriages WHERE user1_id = ? OR user2_id = ?', (user_id, user_id)) as cursor:
             return await cursor.fetchone()
+
+    # --- Clans ---
+    async def create_clan(self, name: str, owner_id: int) -> int:
+        cursor = await self._conn.execute('INSERT INTO clans (name, owner_id) VALUES (?, ?)', (name, owner_id))
+        clan_id = cursor.lastrowid
+        await self.add_clan_member(clan_id, owner_id, 'owner')
+        await self._conn.commit()
+        return clan_id
+
+    async def get_clan(self, clan_id: int) -> Optional[tuple]:
+        async with self._conn.execute('SELECT id, name, owner_id, level, xp, treasury FROM clans WHERE id = ?', (clan_id,)) as cursor:
+            return await cursor.fetchone()
+
+    async def get_clan_by_name(self, name: str) -> Optional[tuple]:
+        async with self._conn.execute('SELECT id, name, owner_id, level, xp, treasury FROM clans WHERE name = ?', (name,)) as cursor:
+            return await cursor.fetchone()
+
+    async def get_user_clan(self, user_id: int) -> Optional[tuple]:
+        async with self._conn.execute('''
+            SELECT c.id, c.name, c.owner_id, c.level, c.xp, c.treasury, cm.role
+            FROM clans c
+            JOIN clan_members cm ON c.id = cm.clan_id
+            WHERE cm.user_id = ?
+        ''', (user_id,)) as cursor:
+            return await cursor.fetchone()
+
+    async def get_clan_members(self, clan_id: int) -> List[tuple]:
+        async with self._conn.execute('SELECT user_id, role, joined_at FROM clan_members WHERE clan_id = ?', (clan_id,)) as cursor:
+            return await cursor.fetchall()
+
+    async def add_clan_member(self, clan_id: int, user_id: int, role: str = 'member'):
+        await self._conn.execute('INSERT INTO clan_members (clan_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)', (clan_id, user_id, role, time.time()))
+        await self._conn.commit()
+
+    async def remove_clan_member(self, clan_id: int, user_id: int):
+        await self._conn.execute('DELETE FROM clan_members WHERE clan_id = ? AND user_id = ?', (clan_id, user_id))
+        await self._conn.commit()
+        
+    async def update_clan_treasury(self, clan_id: int, amount: int):
+        await self._conn.execute('UPDATE clans SET treasury = treasury + ? WHERE id = ?', (amount, clan_id))
+        await self._conn.commit()
 
     async def get_daily_activity(self) -> dict:
         # Simplistic stub for activity over 14 days; in a real scenario we'd query a messages table.

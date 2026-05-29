@@ -1,7 +1,7 @@
 from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery
 from database.repository import Database
-from bot.fsm.states import PayStates, CasinoStates, MarryStates
+from bot.fsm.states import PayStates, CasinoStates, MarryStates, ShopStates
 from aiogram.fsm.context import FSMContext
 from bot.keyboards.main_kb import get_pay_users_kb, get_economy_menu
 from bot.keyboards.economy_kb import get_businesses_kb, get_shop_kb, get_bank_kb
@@ -212,13 +212,14 @@ async def cb_eco_shop(callback: CallbackQuery):
     await callback.message.edit_text(text, reply_markup=get_shop_kb())
 
 @router.callback_query(F.data.startswith("shop_buy_"))
-async def cb_shop_buy(callback: CallbackQuery, db: Database):
+async def cb_shop_buy(callback: CallbackQuery, db: Database, state: FSMContext):
     item = callback.data.replace("shop_buy_", "")
     user = await db.get_user(callback.from_user.id)
     
     if item == "energy": cost = 150
     elif item == "ramen": cost = 300
     elif item == "title_sempai": cost = 1000
+    elif item == "vip_ai": cost = 5000
     else: cost = 0
     
     if user.coins < cost:
@@ -235,9 +236,26 @@ async def cb_shop_buy(callback: CallbackQuery, db: Database):
     elif item == "title_sempai":
         await db.add_inventory_item(user.id, "title", "Семпай")
         await callback.answer("Вы купили титул 'Семпай'!", show_alert=True)
+    elif item == "vip_ai":
+        await state.set_state(ShopStates.waiting_for_custom_prompt)
+        await callback.message.answer("👑 Вы купили возможность задать **Кастомную ИИ-Роль** для бота!\n\nПожалуйста, отправьте следующим сообщением промпт (инструкцию) того, как бот должен себя вести с вами (например: 'Общайся со мной как дерзкая цундере' или 'Ты мой мудрый наставник Yoda').\nИли напишите 'отмена', чтобы отменить ввод.")
+        await callback.answer()
         
     await db.update_user(user)
     await db.add_transaction(user.id, 0, cost, f"shop_{item}")
+
+@router.message(ShopStates.waiting_for_custom_prompt)
+async def process_custom_prompt(message: Message, state: FSMContext, db: Database):
+    if message.text.lower() == 'отмена':
+        await message.answer("Смена роли отменена (но коины уже потрачены). Вы сможете настроить роль позже, купив ее еще раз.")
+        await state.clear()
+        return
+        
+    user = await db.get_user(message.from_user.id)
+    user.custom_prompt = message.text
+    await db.update_user(user)
+    await message.answer("✅ Кастомная роль успешно установлена! Напишите боту что-нибудь, чтобы проверить его новый характер.")
+    await state.clear()
 
 # --- Банк ---
 @router.callback_query(F.data == "eco_bank")

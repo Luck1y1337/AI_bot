@@ -12,6 +12,7 @@ class User:
     is_banned: bool
     last_daily_time: float = 0.0
     username: str = ""
+    custom_prompt: str = None
 
 @dataclass
 class Transaction:
