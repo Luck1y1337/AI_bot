@@ -14,6 +14,11 @@ router = Router()
 async def cmd_economy_menu(message: Message):
     await message.answer("Добро пожаловать в раздел Игр и Экономики! Выберите действие:", reply_markup=get_economy_menu())
 
+@router.callback_query(F.data.in_(["menu_economy", "menu_games"]))
+async def cb_economy_menu_back(callback: CallbackQuery):
+    await callback.message.edit_text("Добро пожаловать в раздел Игр и Экономики! Выберите действие:", reply_markup=get_economy_menu())
+    await callback.answer()
+
 # --- Квесты (Контракты) ---
 from datetime import datetime
 def get_start_of_day() -> float:

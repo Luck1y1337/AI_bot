@@ -52,6 +52,8 @@ def get_economy_menu() -> InlineKeyboardMarkup:
          InlineKeyboardButton(text="🎰 Казино (Coinflip)", callback_data="eco_casino")],
         [InlineKeyboardButton(text="💸 Перевод Коинов", callback_data="eco_transfer"),
          InlineKeyboardButton(text="🎰 Гача (Карточки)", callback_data="gacha_menu")],
+        [InlineKeyboardButton(text="🛒 Глобальный Рынок", callback_data="eco_market"),
+         InlineKeyboardButton(text="⚔️ Рейд на Босса", callback_data="eco_raid")],
         [InlineKeyboardButton(text="💍 Предложить Брак", callback_data="eco_marry"),
          InlineKeyboardButton(text="👍 +Репутация", callback_data="eco_rep")],
         [InlineKeyboardButton(text="🎮 Викторина (Quiz)", callback_data="eco_quiz"),

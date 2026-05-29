@@ -98,6 +98,6 @@ async def cb_gacha_collection(callback: CallbackQuery, db: Database):
         c_stats = c[5] * c_lvl
         emoji = rarity_emojis.get(c_rarity, "⚪")
         
-        text += f"{emoji} **{c_name}** (Ур. {c_lvl})\n└ Мощь: {c_stats}\n\n"
+        text += f"{emoji} **{c_name}** (Ур. {c_lvl}) [ID: {c[1]}]\n└ Мощь: {c_stats}\n\n"
         
     await callback.message.edit_text(text, reply_markup=get_collection_kb(page, total_pages))
