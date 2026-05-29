@@ -9,29 +9,33 @@ from utils.achievements import ACHIEVEMENTS
 
 router = Router()
 
-QUESTIONS = [
-    {"q": "Что превратило меня в девочку?", "opts": ["Магия", "Лекарство", "Проклятие", "Реинкарнация"], "ans": 1},
-    {"q": "Как зовут мою младшую сестру?", "opts": ["Михари", "Каэде", "Момидзи", "Асахи"], "ans": 0},
-    {"q": "Что я люблю делать больше всего?", "opts": ["Учиться", "Тренироваться", "Играть в игры", "Готовить"], "ans": 2},
-    {"q": "Как зовут подругу Михари со средней школы?", "opts": ["Момидзи", "Асахи", "Каэде", "Наюта"], "ans": 2},
-    {"q": "Какой мой любимый жанр игр?", "opts": ["Эроге", "Шутеры", "РПГ", "Головоломки"], "ans": 0},
-    {"q": "В каком я классе по легенде?", "opts": ["Старшая школа", "Средняя школа", "Колледж", "Младшая школа"], "ans": 1},
-    {"q": "Какого цвета у меня волосы?", "opts": ["Блонд", "Черные", "Розовые", "Каштановые"], "ans": 2},
-    {"q": "Кто считает меня супер милой?", "opts": ["Все", "Михари", "Момидзи", "Они все"], "ans": 3},
-    {"q": "Люблю ли я выходить на улицу?", "opts": ["Да", "Нет", "Иногда", "Только за едой"], "ans": 1},
-    {"q": "Как лучше всего провести день?", "opts": ["В школе", "За работой", "Спать и играть", "Шоппинг"], "ans": 2},
-    {"q": "Чьей младшей сестрой является Момидзи?", "opts": ["Каэде", "Асахи", "Михари", "У неё нет сестры"], "ans": 0},
-    {"q": "Хотел ли я быть девочкой?", "opts": ["Да", "Нет", "Мне всё равно", "Втайне да"], "ans": 1}
-]
+import json
+from ai.mistral_client import MistralClient
+
+async def generate_ai_quiz(mistral: MistralClient) -> dict:
+    sys_prompt = "You are a quiz generator. Return ONLY valid JSON format. No markdown, no extra text. The JSON must have exactly: 'q' (the question string, in Russian, topic: anime, video games, or Mahiro Oyama trivia), 'opts' (array of exactly 4 strings with options in Russian), and 'ans' (integer 0-3 for the correct option index)."
+    prompt = "Сгенерируй случайный вопрос для викторины."
+    try:
+        response = await mistral.generate_response(prompt, sys_prompt)
+        response = response.replace('```json', '').replace('```', '').strip()
+        data = json.loads(response)
+        if "q" in data and "opts" in data and "ans" in data and len(data["opts"]) == 4:
+            return data
+    except Exception:
+        pass
+    
+    return {"q": "Ошибка генерации. Кто я?", "opts": ["Махиро", "Михари", "Каэде", "Момидзи"], "ans": 0}
 
 @router.message(F.text.in_(["/quiz", "🎮 Играть (Quiz)"]))
-async def cmd_quiz(message: Message):
-    q = random.choice(QUESTIONS)
-    await message.answer(q["q"], reply_markup=get_quiz_kb(q["opts"], q["ans"]))
+async def cmd_quiz(message: Message, mistral: MistralClient):
+    msg = await message.answer("Генерирую уникальный вопрос... ⏳")
+    q = await generate_ai_quiz(mistral)
+    await msg.edit_text(q["q"], reply_markup=get_quiz_kb(q["opts"], q["ans"]))
 
 @router.callback_query(F.data == "eco_quiz")
-async def cb_eco_quiz(callback: CallbackQuery):
-    q = random.choice(QUESTIONS)
+async def cb_eco_quiz(callback: CallbackQuery, mistral: MistralClient):
+    await callback.message.edit_text("Генерирую уникальный вопрос... ⏳")
+    q = await generate_ai_quiz(mistral)
     await callback.message.edit_text(q["q"], reply_markup=get_quiz_kb(q["opts"], q["ans"]))
 
 @router.callback_query(F.data.startswith("quiz_"))
