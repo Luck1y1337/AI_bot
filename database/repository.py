@@ -422,6 +422,44 @@ class Database:
             await self.update_contract_progress(c_id, new_progress, False)
 
     async def get_daily_activity(self) -> dict:
-        # Simplistic stub for activity over 14 days; in a real scenario we'd query a messages table.
-        # Here we just mock it for the chart since the requirement says "message count".
         return {f"Day {i}": i * 10 for i in range(1, 15)}
+
+    # --- Pets ---
+    async def get_user_pet(self, user_id: int) -> Optional[tuple]:
+        async with self._conn.execute('SELECT id, user_id, pet_type, name, hunger, happiness, last_interact FROM user_pets WHERE user_id = ?', (user_id,)) as cursor:
+            return await cursor.fetchone()
+
+    async def create_user_pet(self, user_id: int, pet_type: str, name: str):
+        await self._conn.execute('INSERT INTO user_pets (user_id, pet_type, name, last_interact) VALUES (?, ?, ?, ?)', (user_id, pet_type, name, time.time()))
+        await self._conn.commit()
+
+    async def update_user_pet(self, pet_id: int, hunger: int, happiness: int, last_interact: float):
+        await self._conn.execute('UPDATE user_pets SET hunger = ?, happiness = ?, last_interact = ? WHERE id = ?', (hunger, happiness, last_interact, pet_id))
+        await self._conn.commit()
+
+    # --- Cards (Gacha) ---
+    async def get_all_cards(self) -> List[tuple]:
+        async with self._conn.execute('SELECT id, name, rarity, stats, image_path FROM cards') as cursor:
+            return await cursor.fetchall()
+
+    async def get_user_cards(self, user_id: int) -> List[tuple]:
+        async with self._conn.execute('''
+            SELECT uc.id, uc.card_id, uc.level, c.name, c.rarity, c.stats, c.image_path 
+            FROM user_cards uc
+            JOIN cards c ON uc.card_id = c.id
+            WHERE uc.user_id = ?
+        ''', (user_id,)) as cursor:
+            return await cursor.fetchall()
+
+    async def add_user_card(self, user_id: int, card_id: int):
+        # Check if exists
+        async with self._conn.execute('SELECT id, level FROM user_cards WHERE user_id = ? AND card_id = ?', (user_id, card_id)) as cursor:
+            existing = await cursor.fetchone()
+        
+        if existing:
+            # Level up duplicate
+            await self._conn.execute('UPDATE user_cards SET level = level + 1 WHERE id = ?', (existing[0],))
+        else:
+            await self._conn.execute('INSERT INTO user_cards (user_id, card_id) VALUES (?, ?)', (user_id, card_id))
+        await self._conn.commit()
+

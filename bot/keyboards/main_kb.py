@@ -8,7 +8,7 @@ def get_main_menu(user_id: int) -> ReplyKeyboardMarkup:
         [KeyboardButton(text="🌟 Интерактив и Экономика")],
         [KeyboardButton(text="📊 Моя Статистика"), KeyboardButton(text="🏆 Лидеры")],
         [KeyboardButton(text="⏰ Мои Напоминания"), KeyboardButton(text="🎤 Голос")],
-        [KeyboardButton(text="🆘 Поддержка")]
+        [KeyboardButton(text="🐾 Мой Питомец"), KeyboardButton(text="🆘 Поддержка")]
     ]
     
     if user_id in settings.ADMIN_USER_IDS:
@@ -51,7 +51,7 @@ def get_economy_menu() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="🏦 Банк Махиро", callback_data="eco_bank"),
          InlineKeyboardButton(text="🎰 Казино (Coinflip)", callback_data="eco_casino")],
         [InlineKeyboardButton(text="💸 Перевод Коинов", callback_data="eco_transfer"),
-         InlineKeyboardButton(text="Гача-бокс 🎁", callback_data="eco_gacha")],
+         InlineKeyboardButton(text="🎰 Гача (Карточки)", callback_data="gacha_menu")],
         [InlineKeyboardButton(text="💍 Предложить Брак", callback_data="eco_marry"),
          InlineKeyboardButton(text="👍 +Репутация", callback_data="eco_rep")],
         [InlineKeyboardButton(text="🎮 Викторина (Quiz)", callback_data="eco_quiz"),

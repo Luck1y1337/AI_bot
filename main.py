@@ -12,7 +12,7 @@ from memory.memory_manager import MemoryManager
 from bot.middlewares.antispam import AntiSpamMiddleware
 from bot.middlewares.whitelist import WhitelistMiddleware
 from bot.middlewares.logging_middleware import LoggingMiddleware
-from bot.handlers import main_handler, admin_handler, game_handler, reminder_handler, gift_handler, support_handler, donate_handler, economy_handler, clan_handler
+from bot.handlers import main_handler, admin_handler, game_handler, reminder_handler, gift_handler, support_handler, donate_handler, economy_handler, clan_handler, gacha_handler, pet_handler
 from media.mood_images import create_placeholders
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import threading
@@ -91,6 +91,9 @@ async def main():
     
     from bot.handlers import inventory_handler
     dp.include_router(inventory_handler.router)
+    
+    dp.include_router(gacha_handler.router)
+    dp.include_router(pet_handler.router)
     
     dp.include_router(main_handler.router)
 
