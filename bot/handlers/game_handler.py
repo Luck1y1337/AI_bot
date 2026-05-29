@@ -2,7 +2,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from database.repository import Database
 from bot.keyboards.inline_kb import get_quiz_kb, get_blackjack_kb
-from bot.fsm.states import BlackjackStates
+from bot.fsm.states import BlackjackStates, RouletteStates
 from aiogram.fsm.context import FSMContext
 import random
 from utils.achievements import ACHIEVEMENTS
@@ -209,7 +209,6 @@ async def cb_bj_action(callback: CallbackQuery, state: FSMContext, db: Database)
 # --- Рулетка ---
 @router.message(F.text.lower() == "рулетка")
 async def cmd_roulette(message: Message, state: FSMContext):
-    from bot.fsm.states import RouletteStates
     await state.set_state(RouletteStates.waiting_for_bet)
     await message.answer("🎡 **Рулетка**\nВведите вашу ставку в формате: `<сумма> <цвет/число>`\nНапример: `100 red`, `50 black`, `20 green` или `10 7`")
 
