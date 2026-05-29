@@ -88,6 +88,10 @@ async def main():
     dp.include_router(donate_handler.router)
     dp.include_router(economy_handler.router)
     dp.include_router(clan_handler.router)
+    
+    from bot.handlers import inventory_handler
+    dp.include_router(inventory_handler.router)
+    
     dp.include_router(main_handler.router)
 
     from utils.backup import perform_backup

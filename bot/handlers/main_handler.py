@@ -148,6 +148,14 @@ async def process_message(message: Message, db: Database, mistral: MistralClient
     user.message_count += 1
     user.coins += 1  # Reward 1 coin per message
     
+    # Base XP with pet buff
+    earned_xp = random.randint(2, 5)
+    inventory = await db.get_user_inventory(user.id)
+    has_slime = any(i[2] == "pet" and i[3] == "Слайм-Помощник" for i in inventory)
+    if has_slime:
+        earned_xp = int(earned_xp * 1.2)
+    user.xp += earned_xp
+    
     # Analyze triggers
     trust_delta, mood_force, triggers = analyze_triggers(text)
     user.trust = max(0, min(100, user.trust + trust_delta))
@@ -176,10 +184,12 @@ async def process_message(message: Message, db: Database, mistral: MistralClient
         row = await cursor.fetchone()
     modifier = row[0] if row else ""
     
-    # Generate Response
     sys_prompt = build_system_prompt(user.mood, user.trust, memory.short.get_history(user_id), memory.long.get_user_memory(user_id), modifier, user.custom_prompt)
     response = await mistral.generate_response(text, sys_prompt)
     memory.short.add_message(user_id, "assistant", response)
+    
+    from utils.quests import increment_quest_progress
+    await increment_quest_progress(user_id, "send_messages", 1, db)
     
     # Achievements
     achievements = await check_achievements(user, db, message)

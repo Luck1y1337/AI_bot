@@ -32,3 +32,10 @@ class ShopStates(StatesGroup):
 class ClanStates(StatesGroup):
     waiting_for_clan_name = State()
     waiting_for_donate = State()
+
+class BlackjackStates(StatesGroup):
+    waiting_for_bet = State()
+    playing = State()
+
+class RouletteStates(StatesGroup):
+    waiting_for_bet = State()

@@ -16,3 +16,10 @@ def get_quiz_kb(options: list, correct_idx: int) -> InlineKeyboardMarkup:
         is_correct = "1" if i == correct_idx else "0"
         kb.append([InlineKeyboardButton(text=opt, callback_data=f"quiz_{is_correct}")])
     return InlineKeyboardMarkup(inline_keyboard=kb)
+
+def get_blackjack_kb() -> InlineKeyboardMarkup:
+    kb = [
+        [InlineKeyboardButton(text="Взять карту 🃏", callback_data="bj_hit")],
+        [InlineKeyboardButton(text="Хватит 🛑", callback_data="bj_stand")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=kb)

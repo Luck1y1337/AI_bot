@@ -321,7 +321,20 @@ class Database:
         await self._conn.execute('UPDATE clans SET treasury = treasury + ? WHERE id = ?', (amount, clan_id))
         await self._conn.commit()
 
+    # --- Contracts / Quests ---
+    async def get_user_contracts(self, user_id: int, start_of_day: float) -> List[tuple]:
+        async with self._conn.execute('SELECT id, task_type, progress, target, is_completed, day_timestamp FROM contracts WHERE user_id = ? AND day_timestamp >= ?', (user_id, start_of_day)) as cursor:
+            return await cursor.fetchall()
+            
+    async def add_contract(self, user_id: int, task_type: str, target: int, day_timestamp: float):
+        await self._conn.execute('INSERT INTO contracts (user_id, task_type, target, day_timestamp) VALUES (?, ?, ?, ?)', (user_id, task_type, target, day_timestamp))
+        await self._conn.commit()
+        
+    async def update_contract_progress(self, contract_id: int, progress: int, is_completed: bool):
+        await self._conn.execute('UPDATE contracts SET progress = ?, is_completed = ? WHERE id = ?', (progress, int(is_completed), contract_id))
+        await self._conn.commit()
+
     async def get_daily_activity(self) -> dict:
         # Simplistic stub for activity over 14 days; in a real scenario we'd query a messages table.
         # Here we just mock it for the chart since the requirement says "message count".
-        return {f"Day {i}": 10*i for i in range(1, 15)}
+        return {f"Day {i}": i * 10 for i in range(1, 15)}

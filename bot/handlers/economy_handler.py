@@ -14,6 +14,98 @@ router = Router()
 async def cmd_economy_menu(message: Message):
     await message.answer("Добро пожаловать в раздел Игр и Экономики! Выберите действие:", reply_markup=get_economy_menu())
 
+# --- Квесты (Контракты) ---
+from datetime import datetime
+def get_start_of_day() -> float:
+    now = datetime.now()
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    return start.timestamp()
+
+@router.callback_query(F.data == "eco_contracts")
+async def cb_eco_contracts(callback: CallbackQuery, db: Database):
+    start_of_day = get_start_of_day()
+    contracts = await db.get_user_contracts(callback.from_user.id, start_of_day)
+    
+    if not contracts:
+        # Generate 3 random quests
+        quest_types = [
+            ("play_casino", "Сыграть в Казино (Коинфлип)", 3),
+            ("collect_biz", "Собрать прибыль с бизнеса", 1),
+            ("send_messages", "Отправить сообщения", 20),
+            ("give_rep", "Выдать +rep", 1),
+            ("buy_shop", "Купить что-то в магазине", 1)
+        ]
+        chosen = random.sample(quest_types, 3)
+        for qt, desc, target in chosen:
+            await db.add_contract(callback.from_user.id, qt, target, time.time())
+        contracts = await db.get_user_contracts(callback.from_user.id, start_of_day)
+        
+    text = "🎯 **Ваши ежедневные задания**\n\nВыполняйте задания, чтобы получать коины и XP!\n\n"
+    
+    kb = []
+    all_completed = True
+    for c_id, t_type, progress, target, is_completed, dt in contracts:
+        status = "✅" if is_completed else f"[{progress}/{target}]"
+        if not is_completed: all_completed = False
+        
+        desc = {
+            "play_casino": "Сыграть в Казино",
+            "collect_biz": "Собрать прибыль",
+            "send_messages": "Отправить сообщения",
+            "give_rep": "Выдать +rep",
+            "buy_shop": "Покупки в магазине"
+        }.get(t_type, t_type)
+        
+        text += f"{status} {desc}\n"
+        
+        if progress >= target and not is_completed:
+            kb.append([InlineKeyboardButton(text=f"🎁 Забрать награду: {desc}", callback_data=f"claim_contract_{c_id}")])
+            
+    if all_completed:
+        text += "\n🎉 Вы выполнили все задания на сегодня!"
+        
+    kb.append([InlineKeyboardButton(text="⬅️ Назад в Экономику", callback_data="back_to_economy")])
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
+
+@router.callback_query(F.data.startswith("claim_contract_"))
+async def cb_claim_contract(callback: CallbackQuery, db: Database):
+    c_id = int(callback.data.split("_")[2])
+    start_of_day = get_start_of_day()
+    contracts = await db.get_user_contracts(callback.from_user.id, start_of_day)
+    
+    contract = next((c for c in contracts if c[0] == c_id), None)
+    if not contract:
+        await callback.answer("Задание не найдено.", show_alert=True)
+        return
+        
+    if contract[4]: # is_completed
+        await callback.answer("Уже получено!", show_alert=True)
+        return
+        
+    if contract[2] < contract[3]: # progress < target
+        await callback.answer("Задание еще не выполнено!", show_alert=True)
+        return
+        
+    # Claim reward
+    user = await db.get_user(callback.from_user.id)
+    reward_coins = 500
+    reward_xp = 50
+    user.coins += reward_coins
+    user.xp += reward_xp
+    await db.update_user(user)
+    await db.update_contract_progress(c_id, contract[2], True)
+    
+    # Check if materials drop (for crafting module)
+    material_dropped = ""
+    if random.random() < 0.3:
+        mat = random.choice(["Дерево", "Металл", "Кристалл"])
+        await db.add_inventory_item(user.id, "material", mat)
+        material_dropped = f"\n\n🎒 Бонус: Вы нашли **{mat}** (материал для крафта)!"
+        
+    await callback.answer(f"Награда получена: {reward_coins} 🪙 и {reward_xp} XP!{material_dropped}", show_alert=True)
+    await cb_eco_contracts(callback, db)
+
 # --- Ежедневный Бонус ---
 @router.callback_query(F.data == "eco_daily")
 async def cb_eco_daily(callback: CallbackQuery, db: Database):
@@ -25,6 +117,10 @@ async def cb_eco_daily(callback: CallbackQuery, db: Database):
         user.last_daily_time = now
         await db.update_user(user)
         await db.add_transaction(0, user.id, 50, "daily_bonus")
+        
+        from utils.quests import increment_quest_progress
+        await increment_quest_progress(user.id, "daily_bonus", 1, db)
+        
         await callback.message.edit_text("Ура! Ты получил(а) ежедневный бонус:\n🪙 50 MahiroCoins\n✨ 10 XP\n\nПриходи завтра!", reply_markup=get_economy_menu())
     else:
         left = int(86400 - (now - user.last_daily_time))
@@ -184,9 +280,10 @@ async def cb_collect_biz(callback: CallbackQuery, db: Database):
         hourly_rate = 10 if biz_type == 'manga' else 50
         profit = int(hours_passed * hourly_rate)
         
-        if profit > 0:
-            total_profit += profit
-            await db.update_business_collect_time(biz_id, now)
+        await db.update_business_collect_time(biz_id, now)
+        
+        from utils.quests import increment_quest_progress
+        await increment_quest_progress(callback.from_user.id, "collect_biz", 1, db)
             
     if total_profit > 0:
         # Check marriage bonus
@@ -240,6 +337,9 @@ async def cb_shop_buy(callback: CallbackQuery, db: Database, state: FSMContext):
         await state.set_state(ShopStates.waiting_for_custom_prompt)
         await callback.message.answer("👑 Вы купили возможность задать **Кастомную ИИ-Роль** для бота!\n\nПожалуйста, отправьте следующим сообщением промпт (инструкцию) того, как бот должен себя вести с вами (например: 'Общайся со мной как дерзкая цундере' или 'Ты мой мудрый наставник Yoda').\nИли напишите 'отмена', чтобы отменить ввод.")
         await callback.answer()
+        
+    from utils.quests import increment_quest_progress
+    await increment_quest_progress(user.id, "buy_shop", 1, db)
         
     await db.update_user(user)
     await db.add_transaction(user.id, 0, cost, f"shop_{item}")
@@ -308,10 +408,7 @@ async def cb_bank_withdraw(callback: CallbackQuery, db: Database):
     await callback.answer(f"Вклады закрыты. Получено: {total_amount} 🪙", show_alert=True)
     await cb_eco_bank(callback, db)
 
-# --- Контракты (Placeholder) ---
-@router.callback_query(F.data == "eco_contracts")
-async def cb_eco_contracts(callback: CallbackQuery):
-    await callback.answer("Контракты в разработке! Ожидайте в следующем патче.", show_alert=True)
+
 
 # --- Казино PvP (Coinflip) ---
 @router.callback_query(F.data == "eco_casino")
@@ -373,6 +470,10 @@ async def process_casino_bet(message: Message, db: Database, state: FSMContext, 
     # Play
     sender.coins -= amount
     target.coins -= amount
+    
+    from utils.quests import increment_quest_progress
+    await increment_quest_progress(sender.id, "play_casino", 1, db)
+    await increment_quest_progress(target.id, "play_casino", 1, db)
     
     roll = random.choice([True, False]) # True = Sender wins
     win_amount = amount * 2
