@@ -121,11 +121,78 @@ class Database:
                 FOREIGN KEY(clan_id) REFERENCES clans(id),
                 FOREIGN KEY(user_id) REFERENCES users(id)
             );
+            CREATE TABLE IF NOT EXISTS cards (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT,
+                rarity TEXT,
+                stats INTEGER,
+                image_path TEXT
+            );
+            CREATE TABLE IF NOT EXISTS user_cards (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                card_id INTEGER,
+                level INTEGER DEFAULT 1,
+                FOREIGN KEY(user_id) REFERENCES users(id),
+                FOREIGN KEY(card_id) REFERENCES cards(id)
+            );
+            CREATE TABLE IF NOT EXISTS user_rpg_stats (
+                user_id INTEGER PRIMARY KEY,
+                hp INTEGER DEFAULT 100,
+                attack INTEGER DEFAULT 10,
+                defense INTEGER DEFAULT 10,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS active_raids (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                boss_name TEXT,
+                hp INTEGER,
+                max_hp INTEGER,
+                end_time REAL
+            );
+            CREATE TABLE IF NOT EXISTS market_lots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                seller_id INTEGER,
+                item_type TEXT,
+                item_id INTEGER,
+                price INTEGER,
+                FOREIGN KEY(seller_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS clan_wars (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                clan1_id INTEGER,
+                clan2_id INTEGER,
+                score1 INTEGER DEFAULT 0,
+                score2 INTEGER DEFAULT 0,
+                end_time REAL,
+                FOREIGN KEY(clan1_id) REFERENCES clans(id),
+                FOREIGN KEY(clan2_id) REFERENCES clans(id)
+            );
+            CREATE TABLE IF NOT EXISTS user_pets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                pet_type TEXT,
+                name TEXT,
+                hunger INTEGER DEFAULT 100,
+                happiness INTEGER DEFAULT 100,
+                last_interact REAL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
         ''')
         
         # Schema migrations
         try:
             await self._conn.execute('ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 0')
+        except Exception:
+            pass
+            
+        try:
+            await self._conn.execute('ALTER TABLE clans ADD COLUMN base_level INTEGER DEFAULT 1')
+        except Exception:
+            pass
+            
+        try:
+            await self._conn.execute('ALTER TABLE clans ADD COLUMN war_wins INTEGER DEFAULT 0')
         except Exception:
             pass
             

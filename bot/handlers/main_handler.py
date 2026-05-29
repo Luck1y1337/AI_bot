@@ -1,5 +1,5 @@
 from aiogram import Router, F, Bot
-from aiogram.types import Message, FSInputFile
+from aiogram.types import Message, FSInputFile, BufferedInputFile
 from aiogram.filters import CommandStart
 from database.repository import Database
 from ai.mistral_client import MistralClient
@@ -16,6 +16,8 @@ from bot.fsm.states import PayStates
 from aiogram.types import CallbackQuery
 import random
 import os
+import io
+from utils.profile_gen import generate_profile_image
 
 router = Router()
 old_trigger_system = TriggerSystem()
@@ -33,7 +35,7 @@ async def cmd_start(message: Message, db: Database, bot: Bot):
     await message.answer("Эм... привет. Я Махиро. А ты кто?", reply_markup=get_main_menu(message.from_user.id))
     
 @router.message(F.text.in_(["/stats", "📊 Моя Статистика"]))
-async def cmd_stats(message: Message, db: Database):
+async def cmd_stats(message: Message, db: Database, bot: Bot):
     user = await db.get_user(message.from_user.id)
     achievements = await db.get_user_achievements(message.from_user.id)
     inventory = await db.get_user_inventory(message.from_user.id)
@@ -52,7 +54,22 @@ async def cmd_stats(message: Message, db: Database):
             f"XP: {user.xp} ✨\n"
             f"MahiroCoins: 🪙 {user.coins}\n\n"
             f"**Достижения:**\n{ach_text}")
-    await message.answer(text)
+            
+    # Generate profile image
+    avatar_bytes = None
+    try:
+        user_photos = await bot.get_user_profile_photos(message.from_user.id)
+        if user_photos.total_count > 0:
+            photo = user_photos.photos[0][-1]
+            file = await bot.get_file(photo.file_id)
+            io_stream = io.BytesIO()
+            await bot.download_file(file.file_path, io_stream)
+            avatar_bytes = io_stream.getvalue()
+    except Exception:
+        pass
+        
+    image_io = await generate_profile_image(user, avatar_bytes)
+    await message.answer_photo(BufferedInputFile(image_io.getvalue(), "profile.png"), caption=text)
 
 
 
