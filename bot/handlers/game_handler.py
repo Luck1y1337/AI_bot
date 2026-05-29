@@ -6,6 +6,7 @@ from bot.fsm.states import BlackjackStates, RouletteStates
 from aiogram.fsm.context import FSMContext
 import random
 from utils.achievements import ACHIEVEMENTS
+router = Router()
 
 from utils.quiz_data import QUESTIONS
 
