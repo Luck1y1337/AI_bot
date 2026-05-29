@@ -23,6 +23,7 @@ def get_start_of_day() -> float:
 
 @router.callback_query(F.data == "eco_contracts")
 async def cb_eco_contracts(callback: CallbackQuery, db: Database):
+    user = await db.get_user(callback.from_user.id) # Ensure user exists to prevent FK violation
     start_of_day = get_start_of_day()
     contracts = await db.get_user_contracts(callback.from_user.id, start_of_day)
     

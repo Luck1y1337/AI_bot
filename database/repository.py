@@ -25,7 +25,8 @@ class Database:
                 coins INTEGER DEFAULT 0,
                 is_banned BOOLEAN DEFAULT 0,
                 last_daily_time REAL DEFAULT 0,
-                username TEXT DEFAULT ""
+                username TEXT DEFAULT "",
+                custom_prompt TEXT DEFAULT ""
             );
             CREATE TABLE IF NOT EXISTS reminders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -125,8 +126,16 @@ class Database:
         # Schema migrations
         try:
             await self._conn.execute('ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 0')
+        except Exception:
+            pass
+            
+        try:
             await self._conn.execute('ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT 0')
-            await self._conn.execute('ALTER TABLE users ADD COLUMN custom_prompt TEXT DEFAULT NULL')
+        except Exception:
+            pass
+            
+        try:
+            await self._conn.execute('ALTER TABLE users ADD COLUMN custom_prompt TEXT DEFAULT ""')
         except Exception:
             pass
             
