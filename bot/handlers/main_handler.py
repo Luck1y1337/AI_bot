@@ -188,8 +188,7 @@ async def process_message(message: Message, db: Database, mistral: MistralClient
     response = await mistral.generate_response(text, sys_prompt)
     memory.short.add_message(user_id, "assistant", response)
     
-    from utils.quests import increment_quest_progress
-    await increment_quest_progress(user_id, "send_messages", 1, db)
+    await db.process_contract_action(user_id, "send_messages", 1)
     
     # Achievements
     achievements = await check_achievements(user, db, message)

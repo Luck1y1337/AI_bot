@@ -343,6 +343,17 @@ class Database:
         await self._conn.execute('UPDATE contracts SET progress = ?, is_completed = ? WHERE id = ?', (progress, int(is_completed), contract_id))
         await self._conn.commit()
 
+    async def process_contract_action(self, user_id: int, action_type: str, amount: int = 1):
+        import datetime
+        start_of_day = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+        async with self._conn.execute('SELECT id, task_type, progress, target, is_completed FROM contracts WHERE user_id = ? AND task_type = ? AND day_timestamp >= ? AND is_completed = 0', (user_id, action_type, start_of_day)) as cursor:
+            contracts = await cursor.fetchall()
+            
+        for c in contracts:
+            c_id, t_type, progress, target, is_completed = c
+            new_progress = min(progress + amount, target)
+            await self.update_contract_progress(c_id, new_progress, False)
+
     async def get_daily_activity(self) -> dict:
         # Simplistic stub for activity over 14 days; in a real scenario we'd query a messages table.
         # Here we just mock it for the chart since the requirement says "message count".

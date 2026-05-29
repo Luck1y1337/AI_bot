@@ -581,6 +581,9 @@ async def cb_eco_rep(callback: CallbackQuery, db: Database):
     await db.update_user(target)
     await db.add_transaction(callback.from_user.id, target.id, 0, "give_rep")
     
+    from utils.quests import increment_quest_progress
+    await increment_quest_progress(callback.from_user.id, "give_rep", 1, db)
+    
     await callback.answer(f"Вы успешно дали +Rep случайному пользователю {target.id}! Ему начислено +50 XP.", show_alert=True)
 
 

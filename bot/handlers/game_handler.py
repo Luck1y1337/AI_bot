@@ -279,6 +279,10 @@ async def process_roulette_bet_internal(message: Message, amount_str: str, bet_t
         text += f"💸 Ставка не сыграла. Вы потеряли {bet} 🪙."
         
     await db.update_user(user)
+    
+    from utils.quests import increment_quest_progress
+    await increment_quest_progress(user.id, "play_casino", 1, db)
+    
     await message.answer(text)
 
 # --- Камень Ножницы Бумага ---
