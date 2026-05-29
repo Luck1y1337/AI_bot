@@ -1,5 +1,5 @@
 from aiogram import Router, F, Bot
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from database.repository import Database
 from bot.fsm.states import PayStates, CasinoStates, MarryStates, ShopStates
 from aiogram.fsm.context import FSMContext

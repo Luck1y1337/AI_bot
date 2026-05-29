@@ -1,5 +1,5 @@
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from database.repository import Database
 from bot.keyboards.inline_kb import get_quiz_kb, get_blackjack_kb
 from bot.fsm.states import BlackjackStates, RouletteStates
@@ -43,12 +43,17 @@ async def process_quiz(callback: CallbackQuery, db: Database):
     is_correct = callback.data.split("_")[1] == "1"
     user = await db.get_user(callback.from_user.id)
     
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➡️ Следующий вопрос", callback_data="eco_quiz")],
+        [InlineKeyboardButton(text="🏠 Назад в Экономику", callback_data="back_to_economy")]
+    ])
+    
     if is_correct:
         user.xp += 10
         user.coins += 5
         user.trust = min(100, user.trust + 3)
         await db.update_user(user)
-        await callback.message.edit_text("Хмпф. Ты правда ответил правильно. Неплохо. (+10 XP, +5 🪙)")
+        await callback.message.edit_text("Хмпф. Ты правда ответил правильно. Неплохо. (+10 XP, +5 🪙)", reply_markup=kb)
         
         # Check quiz master
         if user.xp >= 100:
@@ -57,7 +62,7 @@ async def process_quiz(callback: CallbackQuery, db: Database):
                 await db.add_achievement(user.id, "quiz_master")
                 await callback.message.answer("🏆 Открыто достижение: Мастер Викторин!")
     else:
-        await callback.message.edit_text("Бзззт! Неправильно. Ты вообще меня слушаешь?")
+        await callback.message.edit_text("Бзззт! Неправильно. Ты вообще меня слушаешь?", reply_markup=kb)
     
     await callback.answer()
 
