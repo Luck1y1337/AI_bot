@@ -14,7 +14,8 @@ from ai.mistral_client import MistralClient
 
 async def generate_ai_quiz(mistral: MistralClient) -> dict:
     sys_prompt = "You are a quiz generator. Return ONLY valid JSON format. No markdown, no extra text. The JSON must have exactly: 'q' (the question string, in Russian, topic MUST BE ONLY about the anime/manga 'Onimai' / 'Onii-chan wa Oshimai!'), 'opts' (array of exactly 4 strings with options in Russian), and 'ans' (integer 0-3 for the correct option index)."
-    prompt = "Сгенерируй случайный, уникальный и интересный вопрос для викторины по аниме 'Onimai'."
+    import random
+    prompt = f"Сгенерируй случайный, уникальный и интересный вопрос для викторины по аниме 'Onimai'. (Random Seed: {random.randint(1, 1000000)})"
     try:
         response = await mistral.generate_response(prompt, sys_prompt)
         response = response.replace('```json', '').replace('```', '').strip()
