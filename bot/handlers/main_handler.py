@@ -1,5 +1,5 @@
 from aiogram import Router, F, Bot
-from aiogram.types import Message, FSInputFile, BufferedInputFile
+from aiogram.types import Message, FSInputFile, BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.filters import CommandStart
 from database.repository import Database
 from ai.mistral_client import MistralClient
@@ -8,7 +8,7 @@ from memory.memory_manager import MemoryManager
 from media.tts import generate_tts
 from config.settings import get_settings
 from aiogram.fsm.context import FSMContext
-from bot.fsm.states import VoiceStates
+from bot.fsm.states import VoiceStates, PromoStates
 from media.charts import generate_activity_chart, generate_trust_chart
 from utils.triggers import analyze_triggers
 from ai.triggers import TriggerSystem
