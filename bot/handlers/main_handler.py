@@ -6,6 +6,9 @@ from ai.mistral_client import MistralClient
 from ai.prompt_builder import build_system_prompt
 from memory.memory_manager import MemoryManager
 from media.tts import generate_tts
+from config.settings import get_settings
+from aiogram.fsm.context import FSMContext
+from bot.fsm.states import VoiceStates
 from media.charts import generate_activity_chart, generate_trust_chart
 from utils.triggers import analyze_triggers
 from ai.triggers import TriggerSystem
@@ -95,12 +98,14 @@ async def cmd_mood(message: Message, db: Database):
     await message.answer(response)
 
 @router.message(F.text == "🎤 Голос")
-async def btn_voice_help(message: Message):
-    await message.answer("Напиши `/voice [свой текст]`, чтобы я сказала это вслух!")
+async def btn_voice_help(message: Message, state: FSMContext):
+    await state.set_state(VoiceStates.waiting_for_text)
+    await message.answer("Отправьте текст, который вы хотите, чтобы я озвучила:")
 
-@router.message(F.text.startswith("/voice "))
-async def cmd_voice(message: Message, db: Database, mistral: MistralClient, memory: MemoryManager):
-    text = message.text.replace("/voice ", "")
+@router.message(VoiceStates.waiting_for_text)
+async def process_voice_text(message: Message, state: FSMContext, db: Database, mistral: MistralClient, memory: MemoryManager):
+    text = message.text
+    await state.clear()
     user = await db.get_user(message.from_user.id)
     
     # Fetch modifier
@@ -140,6 +145,47 @@ async def process_photo(message: Message, db: Database, mistral: MistralClient, 
     memory.short.add_message(user.id, "assistant", response)
     
     await message.answer(response)
+
+@router.message(F.text == "🎁 Промокод")
+async def btn_promo_start(message: Message, state: FSMContext):
+    await state.set_state(PromoStates.waiting_for_code)
+    await message.answer("Отправь мне промокод!", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Отмена", callback_data="cancel_promo")]]))
+
+@router.callback_query(F.data == "cancel_promo")
+async def cancel_promo(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.edit_text("Ввод промокода отменен.")
+
+@router.message(PromoStates.waiting_for_code)
+async def process_promo_code(message: Message, state: FSMContext, db: Database):
+    code = message.text.strip()
+    
+    async with db._conn.execute('SELECT reward_coins, reward_xp, max_uses, current_uses FROM promocodes WHERE code = ?', (code,)) as cursor:
+        row = await cursor.fetchone()
+        
+    if not row:
+        await message.answer("Этот промокод не существует или введен неверно.")
+        await state.clear()
+        return
+        
+    coins, xp, max_uses, current_uses = row
+    if current_uses >= max_uses:
+        await message.answer("Этот промокод уже закончился! :(")
+        await state.clear()
+        return
+        
+    # Give reward
+    user = await db.get_user(message.from_user.id)
+    user.coins += coins
+    user.xp += xp
+    await db.update_user(user)
+    
+    # Increment uses
+    await db._conn.execute('UPDATE promocodes SET current_uses = current_uses + 1 WHERE code = ?', (code,))
+    await db._conn.commit()
+    
+    await message.answer(f"🎉 Промокод активирован! Ты получил {coins} 🪙 и {xp} ✨ XP.")
+    await state.clear()
 
 @router.message(F.text)
 async def process_message(message: Message, db: Database, mistral: MistralClient, memory: MemoryManager, bot: Bot):

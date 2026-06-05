@@ -8,7 +8,8 @@ def get_main_menu(user_id: int) -> ReplyKeyboardMarkup:
         [KeyboardButton(text="🌟 Интерактив и Экономика")],
         [KeyboardButton(text="📊 Моя Статистика"), KeyboardButton(text="🏆 Лидеры")],
         [KeyboardButton(text="⏰ Мои Напоминания"), KeyboardButton(text="🎤 Голос")],
-        [KeyboardButton(text="🐾 Мой Питомец"), KeyboardButton(text="🆘 Поддержка")]
+        [KeyboardButton(text="🐾 Мой Питомец"), KeyboardButton(text="🆘 Поддержка")],
+        [KeyboardButton(text="🎁 Промокод")]
     ]
     
     if user_id in settings.ADMIN_USER_IDS:

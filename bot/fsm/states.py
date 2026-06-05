@@ -29,6 +29,18 @@ class MarryStates(StatesGroup):
 class ShopStates(StatesGroup):
     waiting_for_custom_prompt = State()
 
+class MarketStates(StatesGroup):
+    waiting_for_sell_price = State()
+
+class VoiceStates(StatesGroup):
+    waiting_for_text = State()
+
+class RemindStates(StatesGroup):
+    waiting_for_input = State()
+
+class PromoStates(StatesGroup):
+    waiting_for_code = State()
+
 class ClanStates(StatesGroup):
     waiting_for_clan_name = State()
     waiting_for_donate = State()

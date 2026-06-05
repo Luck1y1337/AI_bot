@@ -26,7 +26,8 @@ class Database:
                 is_banned BOOLEAN DEFAULT 0,
                 last_daily_time REAL DEFAULT 0,
                 username TEXT DEFAULT "",
-                custom_prompt TEXT DEFAULT ""
+                custom_prompt TEXT DEFAULT "",
+                is_vip BOOLEAN DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS reminders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -249,23 +250,23 @@ class Database:
             await self._conn.close()
 
     async def get_user(self, user_id: int) -> User:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt FROM users WHERE id = ?', (user_id,)) as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip FROM users WHERE id = ?', (user_id,)) as cursor:
             row = await cursor.fetchone()
             if row:
                 return User(*row)
             # Create user if not exists
             await self._conn.execute('INSERT INTO users (id) VALUES (?)', (user_id,))
             await self._conn.commit()
-            return User(user_id, 50, 'normal', 0, 0, 0, False, 0.0, "", None)
+            return User(user_id, 50, 'normal', 0, 0, 0, False, 0.0, "", None, False)
 
     async def update_user(self, user: User):
         await self._conn.execute('''
-            UPDATE users SET trust = ?, mood = ?, message_count = ?, xp = ?, coins = ?, is_banned = ?, last_daily_time = ?, username = ?, custom_prompt = ? WHERE id = ?
-        ''', (user.trust, user.mood, user.message_count, user.xp, user.coins, user.is_banned, user.last_daily_time, user.username, user.custom_prompt, user.id))
+            UPDATE users SET trust = ?, mood = ?, message_count = ?, xp = ?, coins = ?, is_banned = ?, last_daily_time = ?, username = ?, custom_prompt = ?, is_vip = ? WHERE id = ?
+        ''', (user.trust, user.mood, user.message_count, user.xp, user.coins, user.is_banned, user.last_daily_time, user.username, user.custom_prompt, user.is_vip, user.id))
         await self._conn.commit()
         
     async def get_all_users(self) -> List[User]:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt FROM users') as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip FROM users') as cursor:
             rows = await cursor.fetchall()
             return [User(*row) for row in rows]
             
@@ -391,6 +392,13 @@ class Database:
 
     async def remove_clan_member(self, clan_id: int, user_id: int):
         await self._conn.execute('DELETE FROM clan_members WHERE clan_id = ? AND user_id = ?', (clan_id, user_id))
+        await self._conn.commit()
+
+    async def delete_clan(self, clan_id: int):
+        # Remove all members, active wars, and the clan itself
+        await self._conn.execute('DELETE FROM clan_members WHERE clan_id = ?', (clan_id,))
+        await self._conn.execute('DELETE FROM clan_wars WHERE clan1_id = ? OR clan2_id = ?', (clan_id, clan_id))
+        await self._conn.execute('DELETE FROM clans WHERE id = ?', (clan_id,))
         await self._conn.commit()
         
     async def update_clan_treasury(self, clan_id: int, amount: int):

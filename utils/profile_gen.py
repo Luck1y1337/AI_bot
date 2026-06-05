@@ -70,6 +70,10 @@ async def generate_profile_image(user: User, avatar_bytes: bytes = None) -> io.B
     name = user.username if user.username else f"Игрок {user.id}"
     draw.text((text_x, 60), name, font=font_large, fill=(255, 255, 255))
     
+    # VIP Badge
+    if user.is_vip:
+        draw.text((text_x + font_large.getlength(name) + 15, 65), "💎 VIP", font=font_medium, fill=(255, 215, 0))
+    
     # Stats
     draw.text((text_x, 130), f"Доверие Махиро: {user.trust}%", font=font_medium, fill=(255, 150, 200))
     draw.text((text_x, 170), f"Настроение: {user.mood.capitalize()}", font=font_medium, fill=(150, 200, 255))

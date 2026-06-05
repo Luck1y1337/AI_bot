@@ -338,34 +338,6 @@ async def cmd_addpromo(message: Message, db: Database):
     await db._conn.commit()
     await message.answer(f"✅ Промокод `{code}` создан! Дает: {coins} 🪙, {xp} XP. Использований: {max_uses}")
 
-@router.message(F.text.startswith("/promo "))
-async def cmd_promo(message: Message, db: Database):
-    code = message.text.split(" ", 1)[1].strip()
-    
-    async with db._conn.execute('SELECT reward_coins, reward_xp, max_uses, current_uses FROM promocodes WHERE code = ?', (code,)) as cursor:
-        row = await cursor.fetchone()
-        
-    if not row:
-        await message.answer("Этот промокод не существует или введен неверно.")
-        return
-        
-    coins, xp, max_uses, current_uses = row
-    if current_uses >= max_uses:
-        await message.answer("Этот промокод уже закончился! :(")
-        return
-        
-    # Give reward
-    user = await db.get_user(message.from_user.id)
-    user.coins += coins
-    user.xp += xp
-    await db.update_user(user)
-    
-    # Increment uses
-    await db._conn.execute('UPDATE promocodes SET current_uses = current_uses + 1 WHERE code = ?', (code,))
-    await db._conn.commit()
-    
-    await message.answer(f"🎉 Промокод активирован! Ты получил {coins} 🪙 и {xp} XP.")
-
 @router.message(F.text == "/logs")
 async def cmd_logs(message: Message):
     if not is_admin(message.from_user.id): return
@@ -497,3 +469,67 @@ async def process_unblacklist(message: Message, state: FSMContext, db: Database)
         await message.answer("Неверный ID пользователя.", reply_markup=get_back_button("admin_blacklist_menu"))
     await state.clear()
 
+@router.callback_query(F.data == "admin_market")
+async def admin_market(callback: CallbackQuery, db: Database):
+    await admin_market_page(callback, db, 0)
+
+@router.callback_query(F.data.startswith("admin_market_page_"))
+async def admin_market_page_cb(callback: CallbackQuery, db: Database):
+    page = int(callback.data.split("_")[-1])
+    await admin_market_page(callback, db, page)
+
+async def admin_market_page(callback: CallbackQuery, db: Database, page: int):
+    if not is_admin(callback.from_user.id): return
+    
+    async with db._conn.execute('SELECT m.id, m.seller_id, m.item_type, m.item_id, m.price FROM market_lots m ORDER BY m.id DESC') as cursor:
+        lots = await cursor.fetchall()
+        
+    if not lots:
+        await callback.message.edit_text("🛒 Рынок пуст.", reply_markup=get_back_button("admin_main"))
+        return
+        
+    items_per_page = 5
+    total_pages = (len(lots) - 1) // items_per_page + 1
+    if page >= total_pages: page = total_pages - 1
+    
+    start_idx = page * items_per_page
+    page_lots = lots[start_idx:start_idx+items_per_page]
+    
+    text = f"🛒 **Управление Рынком** (Стр. {page+1}/{total_pages})\n\n"
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+    kb = []
+    
+    for lot in page_lots:
+        l_id, s_id, i_type, i_id, price = lot
+        text += f"Лот #{l_id} | Продавец: {s_id} | Тип: {i_type} | ID Предмета: {i_id} | Цена: {price} 🪙\n"
+        kb.append([InlineKeyboardButton(text=f"🗑️ Удалить Лот #{l_id}", callback_data=f"admin_market_del_{l_id}")])
+        
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton(text="⬅️", callback_data=f"admin_market_page_{page-1}"))
+    if page < total_pages - 1:
+        nav.append(InlineKeyboardButton(text="➡️", callback_data=f"admin_market_page_{page+1}"))
+    if nav: kb.append(nav)
+    
+    kb.append([InlineKeyboardButton(text="🧹 Очистить весь рынок", callback_data="admin_market_clear")])
+    kb.append([InlineKeyboardButton(text="🔙 Назад", callback_data="admin_main")])
+    
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
+
+@router.callback_query(F.data.startswith("admin_market_del_"))
+async def admin_market_del(callback: CallbackQuery, db: Database):
+    if not is_admin(callback.from_user.id): return
+    lot_id = int(callback.data.split("_")[-1])
+    
+    await db._conn.execute('DELETE FROM market_lots WHERE id = ?', (lot_id,))
+    await db._conn.commit()
+    await callback.answer(f"Лот #{lot_id} удален.", show_alert=True)
+    await admin_market_page(callback, db, 0)
+
+@router.callback_query(F.data == "admin_market_clear")
+async def admin_market_clear(callback: CallbackQuery, db: Database):
+    if not is_admin(callback.from_user.id): return
+    await db._conn.execute('DELETE FROM market_lots')
+    await db._conn.commit()
+    await callback.answer("Рынок полностью очищен!", show_alert=True)
+    await callback.message.edit_text("Рынок очищен.", reply_markup=get_back_button("admin_main"))

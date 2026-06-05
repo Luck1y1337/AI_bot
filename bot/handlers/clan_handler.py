@@ -152,7 +152,9 @@ async def cb_clan_leave(callback: CallbackQuery, db: Database):
     c_id, c_name, c_owner, c_level, c_xp, c_treasury, role = user_clan
     
     if role == 'owner':
-        await callback.answer("Владелец не может просто так покинуть клан. (Функция роспуска в разработке)", show_alert=True)
+        await db.delete_clan(c_id)
+        await callback.answer(f"Вы распустили клан {c_name}.", show_alert=True)
+        await callback.message.edit_text("Вы распустили клан.", reply_markup=get_clan_menu_kb(False))
         return
         
     await db.remove_clan_member(c_id, callback.from_user.id)

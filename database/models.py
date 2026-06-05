@@ -13,6 +13,7 @@ class User:
     last_daily_time: float = 0.0
     username: str = ""
     custom_prompt: str = None
+    is_vip: bool = False
 
 @dataclass
 class Transaction:

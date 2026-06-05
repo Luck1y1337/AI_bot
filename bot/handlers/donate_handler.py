@@ -71,8 +71,8 @@ async def process_successful_payment(message: Message, db: Database):
         await message.answer("🎉 Ого! Спасибо огромное! Тебе начислено **1500 🪙 MahiroCoins**!")
     elif payload == 'buy_vip':
         user.coins += 5000
-        # In a real app we would set user.is_vip = True, for now we just give coins and XP
+        user.is_vip = True
         user.xp += 1000
-        await message.answer("🎉 ТЫ ЛУЧШИЙ! Спасибо за невероятную поддержку! Тебе начислен **VIP-статус** (скоро будет отображаться в профиле) и **5000 🪙 MahiroCoins**!")
+        await message.answer("🎉 ТЫ ЛУЧШИЙ! Спасибо за невероятную поддержку! Тебе начислен **VIP-статус** (теперь он будет отображаться в твоем профиле) и **5000 🪙 MahiroCoins**!")
         
     await db.update_user(user)

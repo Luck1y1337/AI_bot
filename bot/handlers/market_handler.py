@@ -2,7 +2,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, Message
 from database.repository import Database
 from aiogram.fsm.context import FSMContext
-from bot.fsm.states import ShopStates
+from bot.fsm.states import ShopStates, MarketStates
 
 router = Router()
 
@@ -113,48 +113,61 @@ async def cb_market_buy(callback: CallbackQuery, db: Database):
     await cb_market(callback, db) # refresh UI
 
 @router.callback_query(F.data == "market_sell")
-async def cb_market_sell(callback: CallbackQuery):
-    text = ("Чтобы продать предмет на глобальном рынке, используйте команду:\n\n"
-            "`/sell card [Ваша_Карточка_ID] [Цена]`\n\n"
-            "Вы можете посмотреть ID ваших карточек в меню Гачи (Скоро добавим туда отображение ID).")
-    await callback.answer(text, show_alert=True)
+async def cb_market_sell(callback: CallbackQuery, db: Database):
+    user_cards = await db.get_user_cards(callback.from_user.id)
+    if not user_cards:
+        await callback.answer("У вас нет карточек для продажи!", show_alert=True)
+        return
+        
+    text = "🛒 **Выберите карточку для продажи:**\n\n"
+    kb = []
+    
+    # We will just show the first 10 cards to avoid huge keyboards
+    for uc in user_cards[:10]:
+        c_name, c_lvl = uc[3], uc[2]
+        kb.append([InlineKeyboardButton(text=f"{c_name} (Ур.{c_lvl})", callback_data=f"market_sell_choose_{uc[1]}")])
+        
+    kb.append([InlineKeyboardButton(text="🔙 Назад", callback_data="eco_market")])
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
 
-@router.message(F.text.startswith("/sell "))
-async def cmd_sell(message: Message, db: Database):
-    args = message.text.split()
-    if len(args) != 4 or args[1] != "card":
-        await message.answer("Использование: /sell card [ID] [Цена]")
-        return
-        
+@router.callback_query(F.data.startswith("market_sell_choose_"))
+async def cb_market_sell_choose(callback: CallbackQuery, state: FSMContext):
+    card_id = int(callback.data.split("_")[-1])
+    await state.update_data(sell_card_id=card_id)
+    await state.set_state(MarketStates.waiting_for_sell_price)
+    
+    await callback.message.answer("Введите цену, за которую хотите продать эту карточку (в коинах 🪙):", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Отмена", callback_data="eco_market")]]))
+    await callback.answer()
+
+@router.message(MarketStates.waiting_for_sell_price)
+async def process_sell_price(message: Message, state: FSMContext, db: Database):
     try:
-        c_id = int(args[2])
-        price = int(args[3])
-    except ValueError:
-        await message.answer("ID и Цена должны быть числами!")
+        price = int(message.text)
+        if price <= 0: raise ValueError
+    except:
+        await message.answer("Пожалуйста, введите корректное положительное число.")
         return
         
-    if price < 1:
-        await message.answer("Цена должна быть больше 0.")
-        return
-        
-    # Check if user has this card
+    data = await state.get_data()
+    c_id = data.get("sell_card_id")
+    
     user_cards = await db.get_user_cards(message.from_user.id)
     has_card = False
     for uc in user_cards:
-        # uc: uc.id, uc.card_id, uc.level, c.name, c.rarity, c.stats, c.image_path
         if uc[1] == c_id:
             has_card = True
             break
             
     if not has_card:
-        await message.answer("У вас нет такой карточки!")
+        await message.answer("У вас больше нет этой карточки.")
+        await state.clear()
         return
         
-    # Ideally we'd remove the card or decrease its level, but for now we just list it and remove it.
     await db._conn.execute('UPDATE user_cards SET level = level - 1 WHERE user_id = ? AND card_id = ?', (message.from_user.id, c_id))
     await db._conn.execute('DELETE FROM user_cards WHERE level <= 0')
     
     await db._conn.execute('INSERT INTO market_lots (seller_id, item_type, item_id, price) VALUES (?, ?, ?, ?)', (message.from_user.id, "card", c_id, price))
     await db._conn.commit()
     
-    await message.answer(f"✅ Карточка выставлена на глобальный рынок за {price} 🪙!")
+    await message.answer(f"✅ Карточка успешно выставлена на глобальный рынок за {price} 🪙!")
+    await state.clear()
