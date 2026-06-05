@@ -1,10 +1,7 @@
 import asyncio
 from database.repository import Database
 
-async def seed_cards():
-    db = Database()
-    await db.connect()
-    
+async def seed_cards(db: Database):
     cards = [
         # Common (Stats: 5-10)
         ('Обычная Махиро', 'Common', 5, ''),
@@ -71,4 +68,10 @@ async def seed_cards():
     else:
         print('No new cards to seed.')
 
-asyncio.run(seed_cards())
+if __name__ == "__main__":
+    async def run_local_seed():
+        db = Database()
+        await db.connect()
+        await seed_cards(db)
+        await db.close()
+    asyncio.run(run_local_seed())

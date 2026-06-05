@@ -62,6 +62,9 @@ async def main():
     db = Database("data/mahiro.db")
     await db.connect()
 
+    from seed_cards import seed_cards
+    await seed_cards(db)
+
     mistral = MistralClient(settings.MISTRAL_API_KEY)
 
     long_term = LongTermMemory()
