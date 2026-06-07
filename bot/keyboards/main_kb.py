@@ -80,6 +80,8 @@ def get_eco_games_kb() -> InlineKeyboardMarkup:
     kb = [
         [InlineKeyboardButton(text="🎰 Казино (Coinflip)", callback_data="eco_casino"),
          InlineKeyboardButton(text="🎰 Гача (Карточки)", callback_data="gacha_menu")],
+        [InlineKeyboardButton(text="🤖 Игры с ИИ", callback_data="ai_games_menu"),
+         InlineKeyboardButton(text="🐾 Тамагочи", callback_data="eco_pets")],
         [InlineKeyboardButton(text="🎮 Викторина (Quiz)", callback_data="eco_quiz"),
          InlineKeyboardButton(text="⚔️ Рейд на Босса", callback_data="eco_raid")],
         [InlineKeyboardButton(text="« Назад в Меню", callback_data="back_to_main_eco")]

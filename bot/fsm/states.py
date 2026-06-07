@@ -57,3 +57,7 @@ class BlackjackStates(StatesGroup):
 
 class RouletteStates(StatesGroup):
     waiting_for_bet = State()
+
+class AIGamesStates(StatesGroup):
+    playing_guess_number = State()
+    playing_words = State()

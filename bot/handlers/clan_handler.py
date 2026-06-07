@@ -17,7 +17,8 @@ def get_clan_menu_kb(has_clan: bool) -> InlineKeyboardMarkup:
         kb.append([InlineKeyboardButton(text="👥 Участники", callback_data="clan_members")])
         kb.append([InlineKeyboardButton(text="💰 В Казну", callback_data="clan_donate"),
                    InlineKeyboardButton(text="🏗️ Улучшить Базу", callback_data="clan_upgrade")])
-        kb.append([InlineKeyboardButton(text="⚔️ Клановые Войны", callback_data="clan_wars_menu")])
+        kb.append([InlineKeyboardButton(text="⚔️ Клановые Войны", callback_data="clan_wars_menu"),
+                   InlineKeyboardButton(text="🐉 Клановый Рейд", callback_data="clan_boss_menu")])
         kb.append([InlineKeyboardButton(text="🏆 Топ Кланов", callback_data="clan_top"),
                    InlineKeyboardButton(text="🚪 Покинуть", callback_data="clan_leave")])
     
@@ -387,23 +388,125 @@ async def process_clan_kick(message: Message, state: FSMContext, db: Database):
         await state.clear()
         return
         
-    c_id = user_clan[0]
-    
-    if target_id == message.from_user.id:
-        await message.answer("Вы не можете выгнать самого себя!")
-        await state.clear()
-        return
-        
-    # Check if target in clan
-    target_clan = await db.get_user_clan(target_id)
-    if not target_clan or target_clan[0] != c_id:
-        await message.answer("Этот игрок не состоит в вашем клане.")
-        await state.clear()
-        return
-        
     await db.remove_clan_member(c_id, target_id)
     await message.answer(f"✅ Участник {target_id} выгнан из клана.")
     try:
         await message.bot.send_message(target_id, f"Вы были исключены из клана <b>{user_clan[1]}</b>.", parse_mode="HTML")
     except: pass
     await state.clear()
+
+# --- Clan Bosses ---
+from utils.progress_bar import generate_progress_bar
+import time
+
+@router.callback_query(F.data == "clan_boss_menu")
+async def cb_clan_boss_menu(callback: CallbackQuery, db: Database):
+    user_clan = await db.get_user_clan(callback.from_user.id)
+    if not user_clan: return await callback.answer("У вас нет клана!", show_alert=True)
+    c_id, c_name, c_owner, c_level, c_xp, c_treasury, role = user_clan
+    
+    boss = await db.get_clan_boss(c_id)
+    kb = []
+    if not boss:
+        text = "🐉 <b>Клановый Рейд</b>\n\nСейчас нет активного босса."
+        if role == 'owner':
+            text += "\nВы можете призвать Древнего Дракона (стоимость: 5000 🪙 из казны)."
+            kb.append([InlineKeyboardButton(text="🗡️ Призвать Дракона", callback_data="clan_boss_summon")])
+    else:
+        clan_id, boss_name, hp, max_hp, end_time = boss
+        if time.time() > end_time or hp <= 0:
+            if hp <= 0:
+                text = f"🐉 <b>{boss_name} повержен!</b>\nПоздравляем! Ваш клан доказал свою мощь."
+                # Reward distribution logic can be complex, for now just give XP and coins to clan
+                if role == 'owner':
+                    kb.append([InlineKeyboardButton(text="🎁 Забрать Награду (Лидер)", callback_data="clan_boss_claim")])
+            else:
+                text = f"🐉 <b>{boss_name} улетел...</b>\nКлан не успел победить босса за 24 часа. Рейд провален."
+                if role == 'owner':
+                    kb.append([InlineKeyboardButton(text="🧹 Очистить", callback_data="clan_boss_clear")])
+        else:
+            bar = generate_progress_bar(hp, max_hp, 15)
+            hours_left = int((end_time - time.time()) / 3600)
+            text = f"🐉 <b>Рейд: {boss_name}</b>\n\n"
+            text += f"❤️ HP: {hp} / {max_hp}\n"
+            text += f"`{bar}`\n\n"
+            text += f"⏳ Осталось времени: {hours_left} ч.\nКаждый участник может атаковать босса раз в час!"
+            kb.append([InlineKeyboardButton(text="⚔️ Атаковать", callback_data="clan_boss_attack")])
+            
+    kb.append([InlineKeyboardButton(text="« Назад в Клан", callback_data="clan_my")])
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
+
+@router.callback_query(F.data == "clan_boss_summon")
+async def cb_clan_boss_summon(callback: CallbackQuery, db: Database):
+    user_clan = await db.get_user_clan(callback.from_user.id)
+    if not user_clan or user_clan[6] != 'owner': return await callback.answer("Только лидер может призвать босса!", show_alert=True)
+    c_id, c_name, c_owner, c_level, c_xp, c_treasury, role = user_clan
+    
+    boss = await db.get_clan_boss(c_id)
+    if boss: return await callback.answer("У вас уже есть активный босс!", show_alert=True)
+    
+    if c_treasury < 5000:
+        return await callback.answer("Недостаточно средств в казне! Нужно 5000 🪙.", show_alert=True)
+        
+    await db.update_clan_treasury(c_id, -5000)
+    
+    max_hp = 5000 * c_level # HP scales with clan level
+    await db.create_clan_boss(c_id, "Древний Дракон", max_hp, 24)
+    
+    await callback.answer("Босс успешно призван!", show_alert=True)
+    await cb_clan_boss_menu(callback, db)
+
+@router.callback_query(F.data == "clan_boss_attack")
+async def cb_clan_boss_attack(callback: CallbackQuery, db: Database):
+    user_clan = await db.get_user_clan(callback.from_user.id)
+    if not user_clan: return await callback.answer("Вы не в клане!", show_alert=True)
+    c_id = user_clan[0]
+    
+    boss = await db.get_clan_boss(c_id)
+    if not boss or boss[2] <= 0 or time.time() > boss[4]:
+        return await callback.answer("Босс мертв или время вышло!", show_alert=True)
+        
+    # Check cooldown (1 hour per user)
+    # Reusing transactions table as a cooldown lock
+    async with db._conn.execute('SELECT timestamp FROM transactions WHERE sender_id = ? AND action_type = "clan_boss_attack" ORDER BY timestamp DESC LIMIT 1', (callback.from_user.id,)) as cursor:
+        last_atk = await cursor.fetchone()
+    
+    if last_atk and time.time() - last_atk[0] < 3600:
+        mins = int(60 - (time.time() - last_atk[0]) / 60)
+        return await callback.answer(f"Вы уже атаковали босса недавно! Отдыхайте еще {mins} мин.", show_alert=True)
+        
+    import random
+    user_cards = await db.get_user_cards(callback.from_user.id)
+    power = sum([c[5] * c[2] for c in user_cards]) # Sum of (stats * level) of all cards
+    if power == 0: power = 10 # Base power if no cards
+    
+    dmg = random.randint(int(power * 0.8), int(power * 1.2))
+    new_hp = max(0, boss[2] - dmg)
+    
+    await db.update_clan_boss_hp(c_id, new_hp)
+    await db.add_transaction(callback.from_user.id, c_id, dmg, "clan_boss_attack")
+    
+    from utils.quests import increment_quest_progress
+    await increment_quest_progress(callback.from_user.id, "boss_damage", dmg, db)
+    
+    await callback.answer(f"Вы нанесли {dmg} урона боссу!", show_alert=True)
+    await cb_clan_boss_menu(callback, db)
+
+@router.callback_query(F.data.in_(["clan_boss_claim", "clan_boss_clear"]))
+async def cb_clan_boss_end(callback: CallbackQuery, db: Database):
+    user_clan = await db.get_user_clan(callback.from_user.id)
+    if not user_clan or user_clan[6] != 'owner': return await callback.answer("Только лидер может сделать это!", show_alert=True)
+    c_id = user_clan[0]
+    
+    boss = await db.get_clan_boss(c_id)
+    if not boss: return await callback.answer("Босса нет.", show_alert=True)
+    
+    if callback.data == "clan_boss_claim":
+        if boss[2] > 0: return await callback.answer("Босс еще жив!", show_alert=True)
+        reward = boss[3] * 2 # Reward scales with max HP
+        await db.update_clan_treasury(c_id, reward)
+        await db._conn.execute('UPDATE clans SET xp = xp + ? WHERE id = ?', (reward // 10, c_id))
+        await callback.answer(f"Клан получил {reward} 🪙 в казну и {reward // 10} XP!", show_alert=True)
+        
+    await db.delete_clan_boss(c_id)
+    await cb_clan_boss_menu(callback, db)

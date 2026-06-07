@@ -169,15 +169,24 @@ class Database:
                 FOREIGN KEY(clan1_id) REFERENCES clans(id),
                 FOREIGN KEY(clan2_id) REFERENCES clans(id)
             );
-            CREATE TABLE IF NOT EXISTS user_pets (
+            CREATE TABLE IF NOT EXISTS pets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER,
                 pet_type TEXT,
                 name TEXT,
+                level INTEGER DEFAULT 1,
+                exp INTEGER DEFAULT 0,
                 hunger INTEGER DEFAULT 100,
-                happiness INTEGER DEFAULT 100,
-                last_interact REAL,
+                last_fed REAL,
                 FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS clan_bosses (
+                clan_id INTEGER PRIMARY KEY,
+                boss_name TEXT,
+                hp INTEGER,
+                max_hp INTEGER,
+                end_time REAL,
+                FOREIGN KEY(clan_id) REFERENCES clans(id)
             );
             
             CREATE INDEX IF NOT EXISTS idx_user_cards_user_id ON user_cards(user_id);
@@ -465,17 +474,40 @@ class Database:
     async def get_daily_activity(self) -> dict:
         return {f"Day {i}": i * 10 for i in range(1, 15)}
 
-    # --- Pets ---
-    async def get_user_pet(self, user_id: int) -> Optional[tuple]:
-        async with self._conn.execute('SELECT id, user_id, pet_type, name, hunger, happiness, last_interact FROM user_pets WHERE user_id = ?', (user_id,)) as cursor:
+    # --- Pets (Tamagotchi) ---
+    async def get_user_pets(self, user_id: int) -> List[tuple]:
+        async with self._conn.execute('SELECT id, user_id, pet_type, name, level, exp, hunger, last_fed FROM pets WHERE user_id = ?', (user_id,)) as cursor:
+            return await cursor.fetchall()
+
+    async def get_pet(self, pet_id: int) -> Optional[tuple]:
+        async with self._conn.execute('SELECT id, user_id, pet_type, name, level, exp, hunger, last_fed FROM pets WHERE id = ?', (pet_id,)) as cursor:
             return await cursor.fetchone()
 
-    async def create_user_pet(self, user_id: int, pet_type: str, name: str):
-        await self._conn.execute('INSERT INTO user_pets (user_id, pet_type, name, last_interact) VALUES (?, ?, ?, ?)', (user_id, pet_type, name, time.time()))
+    async def create_pet(self, user_id: int, pet_type: str, name: str):
+        await self._conn.execute('INSERT INTO pets (user_id, pet_type, name, last_fed) VALUES (?, ?, ?, ?)', (user_id, pet_type, name, time.time()))
         await self._conn.commit()
 
-    async def update_user_pet(self, pet_id: int, hunger: int, happiness: int, last_interact: float):
-        await self._conn.execute('UPDATE user_pets SET hunger = ?, happiness = ?, last_interact = ? WHERE id = ?', (hunger, happiness, last_interact, pet_id))
+    async def update_pet(self, pet_id: int, level: int, exp: int, hunger: int, last_fed: float):
+        await self._conn.execute('UPDATE pets SET level = ?, exp = ?, hunger = ?, last_fed = ? WHERE id = ?', (level, exp, hunger, last_fed, pet_id))
+        await self._conn.commit()
+
+    # --- Clan Bosses ---
+    async def get_clan_boss(self, clan_id: int) -> Optional[tuple]:
+        async with self._conn.execute('SELECT clan_id, boss_name, hp, max_hp, end_time FROM clan_bosses WHERE clan_id = ?', (clan_id,)) as cursor:
+            return await cursor.fetchone()
+
+    async def create_clan_boss(self, clan_id: int, boss_name: str, max_hp: int, duration_hours: int):
+        end_time = time.time() + (duration_hours * 3600)
+        await self._conn.execute('INSERT OR REPLACE INTO clan_bosses (clan_id, boss_name, hp, max_hp, end_time) VALUES (?, ?, ?, ?, ?)', 
+                                 (clan_id, boss_name, max_hp, max_hp, end_time))
+        await self._conn.commit()
+
+    async def update_clan_boss_hp(self, clan_id: int, new_hp: int):
+        await self._conn.execute('UPDATE clan_bosses SET hp = ? WHERE clan_id = ?', (new_hp, clan_id))
+        await self._conn.commit()
+
+    async def delete_clan_boss(self, clan_id: int):
+        await self._conn.execute('DELETE FROM clan_bosses WHERE clan_id = ?', (clan_id,))
         await self._conn.commit()
 
     # --- Cards (Gacha) ---

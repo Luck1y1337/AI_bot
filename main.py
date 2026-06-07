@@ -101,6 +101,9 @@ async def main():
     dp.include_router(market_handler.router)
     
     dp.include_router(main_handler.router)
+    
+    from bot.handlers import ai_games_handler
+    dp.include_router(ai_games_handler.router)
 
     from utils.backup import perform_backup
     scheduler = AsyncIOScheduler()
