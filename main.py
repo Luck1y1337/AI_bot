@@ -92,8 +92,12 @@ async def main():
     dp.include_router(economy_handler.router)
     dp.include_router(clan_handler.router)
     
-    from bot.handlers import inventory_handler
+    from bot.handlers import inventory_handler, marry_handler, bounty_handler, roulette_pvp_handler, black_market_handler
     dp.include_router(inventory_handler.router)
+    dp.include_router(marry_handler.router)
+    dp.include_router(bounty_handler.router)
+    dp.include_router(roulette_pvp_handler.router)
+    dp.include_router(black_market_handler.router)
     
     dp.include_router(gacha_handler.router)
     dp.include_router(pet_handler.router)

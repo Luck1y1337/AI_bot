@@ -603,6 +603,16 @@ async def cb_casino_accept(callback: CallbackQuery, db: Database, bot: Bot):
         
     await db.add_transaction(loser_id, winner_id, amount, "casino_coinflip")
     
+    # Bounty Logic
+    bounty = await db.get_bounty(loser_id)
+    if bounty:
+        b_amount = bounty[2]
+        await db.add_coins(winner_id, b_amount)
+        await db.remove_bounty(loser_id)
+        winner_text_extra = f"\n\n🚨 ВЫ ЗАБРАЛИ НАГРАДУ ЗА ГОЛОВУ! +{b_amount} 🪙!"
+        if winner_id == challenger_id: challenger_text += winner_text_extra
+        else: target_text += winner_text_extra
+    
     await asyncio.sleep(2)
     await callback.message.answer(target_text)
     try:
@@ -622,91 +632,8 @@ async def cb_casino_decline(callback: CallbackQuery, db: Database, bot: Bot):
         await bot.send_message(challenger_id, f"❌ Пользователь {callback.from_user.id} отклонил ваш вызов. Ставка {amount} 🪙 возвращена.")
     except: pass
 
-# --- Брак ---
-@router.callback_query(F.data == "eco_marry")
-async def cb_eco_marry(callback: CallbackQuery, db: Database, state: FSMContext):
-    marriage = await db.get_marriage(callback.from_user.id)
-    if marriage:
-        partner_id = marriage[1] if marriage[0] == callback.from_user.id else marriage[0]
-        await callback.answer(f"Вы уже в браке с пользователем {partner_id}! 💍\nВы получаете +10% бонус к бизнесу.", show_alert=True)
-        return
-        
-    users = await db.get_all_users()
-    users = [u for u in users if u.id != callback.from_user.id]
-    if not users:
-        await callback.answer("Нет доступных партнеров.", show_alert=True)
-        return
-    await state.set_state(MarryStates.waiting_for_partner)
-    await callback.message.edit_text("💍 **Предложение руки и сердца**\n\nВыберите партнера (Брак даёт +10% к доходу с бизнесов):", reply_markup=get_social_users_kb(users, 0))
 
-@router.callback_query(MarryStates.waiting_for_partner, F.data.startswith("pay_page_"))
-async def marry_paginate(callback: CallbackQuery, db: Database):
-    page = int(callback.data.split("_")[2])
-    users = await db.get_all_users()
-    users = [u for u in users if u.id != callback.from_user.id]
-    await callback.message.edit_reply_markup(reply_markup=get_social_users_kb(users, page))
-    await callback.answer()
 
-@router.callback_query(MarryStates.waiting_for_partner, F.data.startswith("pay_select_"))
-async def marry_select(callback: CallbackQuery, db: Database, state: FSMContext, bot: Bot):
-    target_id = int(callback.data.split("_")[2])
-    
-    target_marriage = await db.get_marriage(target_id)
-    if target_marriage:
-        await callback.answer("Этот пользователь уже состоит в браке! 💔", show_alert=True)
-        return
-        
-    user = await db.get_user(callback.from_user.id)
-    if user.coins < 5000:
-        await callback.answer("Для предложения нужно 5000 🪙 на кольца!", show_alert=True)
-        return
-        
-    await state.clear()
-    await callback.message.edit_text(f"💍 Вы сделали предложение пользователю {target_id}! Ожидаем его ответа (5000 🪙 будут списаны при согласии).")
-    
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💍 Принять", callback_data=f"marry_accept_{user.id}")],
-        [InlineKeyboardButton(text="💔 Отказать", callback_data=f"marry_decline_{user.id}")]
-    ])
-    try:
-        await bot.send_message(target_id, f"💍 Пользователь {user.id} предлагает вам вступить в брак!\nБрак дает обоим +10% дохода с бизнесов.", reply_markup=kb)
-    except:
-        await callback.message.answer(f"Не удалось отправить сообщение пользователю {target_id}.")
-
-@router.callback_query(F.data.startswith("marry_accept_"))
-async def cb_marry_accept(callback: CallbackQuery, db: Database, bot: Bot):
-    proposer_id = int(callback.data.split("_")[2])
-    target_id = callback.from_user.id
-    
-    if await db.get_marriage(target_id) or await db.get_marriage(proposer_id):
-        await callback.message.edit_text("Кто-то из вас уже состоит в браке!")
-        return
-        
-    if not await db.deduct_coins(proposer_id, 5000):
-        await callback.message.edit_text("У инициатора больше нет 5000 🪙 на кольца! Свадьба отменяется.")
-        try: await bot.send_message(proposer_id, f"💔 {target_id} согласился на брак, но у вас не хватило коинов!")
-        except: pass
-        return
-        
-    await db.add_marriage(proposer_id, target_id)
-    await callback.message.edit_text(f"🎉 Вы успешно вступили в брак с {proposer_id}!")
-    try:
-        await bot.send_message(proposer_id, f"🎉 Пользователь {target_id} согласился на брак! -5000 🪙 за кольца. Поздравляем!")
-    except: pass
-
-@router.callback_query(F.data.startswith("marry_decline_"))
-async def cb_marry_decline(callback: CallbackQuery, bot: Bot):
-    proposer_id = int(callback.data.split("_")[2])
-    await callback.message.edit_text("Вы отказались от предложения.")
-    try:
-        await bot.send_message(proposer_id, f"💔 Пользователь {callback.from_user.id} отказался от вашего предложения руки и сердца.")
-    except: pass
-
-@router.callback_query(MarryStates.waiting_for_partner, F.data == "pay_cancel")
-async def marry_cancel(callback: CallbackQuery, state: FSMContext):
-    await state.clear()
-    await callback.message.edit_text("🤝 **Социальное**\n\nВзаимодействуй с другими игроками!", reply_markup=get_eco_social_kb())
-    await callback.answer()
 
 # --- Репутация ---
 @router.callback_query(F.data == "eco_rep")

@@ -223,6 +223,41 @@ class Database:
             pass
             
         try:
+            await self._conn.execute('ALTER TABLE clans ADD COLUMN base_level INTEGER DEFAULT 1')
+        except Exception:
+            pass
+            
+        try:
+            await self._conn.execute('''
+            CREATE TABLE IF NOT EXISTS houses (
+                marriage_id_1 INTEGER,
+                marriage_id_2 INTEGER,
+                level INTEGER DEFAULT 1,
+                furniture_points INTEGER DEFAULT 0,
+                PRIMARY KEY (marriage_id_1, marriage_id_2)
+            )
+            ''')
+        except Exception:
+            pass
+
+        try:
+            await self._conn.execute('''
+            CREATE TABLE IF NOT EXISTS bounties (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                target_user_id INTEGER,
+                issuer_id INTEGER,
+                bounty_amount INTEGER
+            )
+            ''')
+        except Exception:
+            pass
+            
+        try:
+            await self._conn.execute('ALTER TABLE inventory ADD COLUMN amount INTEGER DEFAULT 1')
+        except Exception:
+            pass
+            
+        try:
             await self._conn.execute('ALTER TABLE users ADD COLUMN last_daily_time REAL DEFAULT 0')
         except Exception:
             pass
@@ -536,3 +571,64 @@ class Database:
             await self._conn.execute('INSERT INTO user_cards (user_id, card_id) VALUES (?, ?)', (user_id, card_id))
         await self._conn.commit()
 
+    # --- Inventory (Updated with Amount) ---
+    async def get_inventory_item(self, user_id: int, item_type: str) -> Optional[tuple]:
+        async with self._conn.execute('SELECT id, item_type, amount FROM inventory WHERE user_id = ? AND item_type = ?', (user_id, item_type)) as cursor:
+            return await cursor.fetchone()
+            
+    async def add_inventory_amount(self, user_id: int, item_type: str, amount: int):
+        existing = await self.get_inventory_item(user_id, item_type)
+        if existing:
+            await self._conn.execute('UPDATE inventory SET amount = amount + ? WHERE id = ?', (amount, existing[0]))
+        else:
+            await self._conn.execute('INSERT INTO inventory (user_id, item_type, amount) VALUES (?, ?, ?)', (user_id, item_type, amount))
+        await self._conn.commit()
+        
+    async def remove_inventory_amount(self, user_id: int, item_type: str, amount: int) -> bool:
+        existing = await self.get_inventory_item(user_id, item_type)
+        if not existing or existing[2] < amount:
+            return False
+        if existing[2] == amount:
+            await self._conn.execute('DELETE FROM inventory WHERE id = ?', (existing[0],))
+        else:
+            await self._conn.execute('UPDATE inventory SET amount = amount - ? WHERE id = ?', (amount, existing[0]))
+        await self._conn.commit()
+        return True
+
+    # --- Houses (Marriages) ---
+    async def get_marriage_house(self, m_id_1: int, m_id_2: int) -> Optional[tuple]:
+        u1, u2 = min(m_id_1, m_id_2), max(m_id_1, m_id_2)
+        async with self._conn.execute('SELECT level, furniture_points FROM houses WHERE marriage_id_1 = ? AND marriage_id_2 = ?', (u1, u2)) as cursor:
+            return await cursor.fetchone()
+            
+    async def create_marriage_house(self, m_id_1: int, m_id_2: int):
+        u1, u2 = min(m_id_1, m_id_2), max(m_id_1, m_id_2)
+        await self._conn.execute('INSERT OR IGNORE INTO houses (marriage_id_1, marriage_id_2, level, furniture_points) VALUES (?, ?, 1, 0)', (u1, u2))
+        await self._conn.commit()
+        
+    async def update_marriage_house(self, m_id_1: int, m_id_2: int, level: int, fp: int):
+        u1, u2 = min(m_id_1, m_id_2), max(m_id_1, m_id_2)
+        await self._conn.execute('UPDATE houses SET level = ?, furniture_points = ? WHERE marriage_id_1 = ? AND marriage_id_2 = ?', (level, fp, u1, u2))
+        await self._conn.commit()
+
+    # --- Bounties ---
+    async def add_bounty(self, target_id: int, issuer_id: int, amount: int):
+        async with self._conn.execute('SELECT id, bounty_amount FROM bounties WHERE target_user_id = ?', (target_id,)) as cursor:
+            existing = await cursor.fetchone()
+        if existing:
+            await self._conn.execute('UPDATE bounties SET bounty_amount = bounty_amount + ? WHERE id = ?', (amount, existing[0]))
+        else:
+            await self._conn.execute('INSERT INTO bounties (target_user_id, issuer_id, bounty_amount) VALUES (?, ?, ?)', (target_id, issuer_id, amount))
+        await self._conn.commit()
+        
+    async def get_bounty(self, target_id: int) -> Optional[tuple]:
+        async with self._conn.execute('SELECT id, issuer_id, bounty_amount FROM bounties WHERE target_user_id = ?', (target_id,)) as cursor:
+            return await cursor.fetchone()
+            
+    async def get_all_bounties(self, limit: int = 10) -> List[tuple]:
+        async with self._conn.execute('SELECT target_user_id, bounty_amount FROM bounties ORDER BY bounty_amount DESC LIMIT ?', (limit,)) as cursor:
+            return await cursor.fetchall()
+            
+    async def remove_bounty(self, target_id: int):
+        await self._conn.execute('DELETE FROM bounties WHERE target_user_id = ?', (target_id,))
+        await self._conn.commit()

@@ -1,71 +1,126 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.fsm.context import FSMContext
 from database.repository import Database
+import time
 
 router = Router()
 
-@router.message(F.text.in_(["/inventory", "🎒 Инвентарь"]))
-async def cmd_inventory(message: Message, db: Database):
-    inventory = await db.get_user_inventory(message.from_user.id)
+def get_inventory_kb() -> InlineKeyboardMarkup:
+    kb = [
+        [InlineKeyboardButton(text="⛏️ Добывать Ресурсы", callback_data="inv_mine")],
+        [InlineKeyboardButton(text="⚒️ Крафт", callback_data="inv_craft_menu")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="cat_income")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=kb)
+
+def get_craft_kb() -> InlineKeyboardMarkup:
+    kb = [
+        [InlineKeyboardButton(text="🗡️ Меч (10 🪵, 5 🪨)", callback_data="craft_sword")],
+        [InlineKeyboardButton(text="🛡️ Броня (20 🪵, 10 🪨)", callback_data="craft_armor")],
+        [InlineKeyboardButton(text="💍 Обручальное Кольцо (50 🪨, 1000 🪙)", callback_data="craft_ring")],
+        [InlineKeyboardButton(text="🔙 В инвентарь", callback_data="eco_inventory")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=kb)
+
+@router.callback_query(F.data == "eco_inventory")
+async def cb_inventory(callback: CallbackQuery, db: Database):
+    user_id = callback.from_user.id
     
-    if not inventory:
-        await message.answer("Ваш инвентарь пуст.")
+    # Let's get inventory with amounts
+    # inventory: id, user_id, item_type, amount
+    items = []
+    async with db._conn.execute('SELECT item_type, amount FROM inventory WHERE user_id = ?', (user_id,)) as cursor:
+        items = await cursor.fetchall()
+        
+    text = "🎒 **Ваш Инвентарь**\n\n"
+    if not items:
+        text += "Пусто. Отправляйтесь добывать ресурсы!"
+    else:
+        emojis = {
+            "wood": "🪵 Дерево",
+            "stone": "🪨 Камень",
+            "sword": "🗡️ Меч",
+            "armor": "🛡️ Броня",
+            "ring": "💍 Обручальное Кольцо"
+        }
+        for item_type, amount in items:
+            name = emojis.get(item_type, item_type)
+            text += f"• {name}: {amount} шт.\n"
+            
+    await callback.message.edit_text(text, reply_markup=get_inventory_kb())
+    await callback.answer()
+
+@router.callback_query(F.data == "inv_mine")
+async def cb_inv_mine(callback: CallbackQuery, db: Database):
+    user_id = callback.from_user.id
+    
+    # Cooldown 15 minutes
+    async with db._conn.execute('SELECT timestamp FROM transactions WHERE sender_id = ? AND action_type = "mine" ORDER BY timestamp DESC LIMIT 1', (user_id,)) as cursor:
+        last_mine = await cursor.fetchone()
+        
+    if last_mine and time.time() - last_mine[0] < 900:
+        mins = int(15 - (time.time() - last_mine[0]) / 60)
+        return await callback.answer(f"Вы устали! Отдохните еще {mins} мин.", show_alert=True)
+        
+    import random
+    wood = random.randint(1, 5)
+    stone = random.randint(0, 3)
+    
+    await db.add_inventory_amount(user_id, "wood", wood)
+    if stone > 0:
+        await db.add_inventory_amount(user_id, "stone", stone)
+        
+    await db.add_transaction(user_id, 0, 0, "mine")
+    
+    msg = f"Вы поработали в шахте и лесу!\nПолучено: 🪵 {wood} Дерева"
+    if stone > 0: msg += f", 🪨 {stone} Камня"
+    
+    await callback.answer(msg, show_alert=True)
+    await cb_inventory(callback, db)
+
+@router.callback_query(F.data == "inv_craft_menu")
+async def cb_craft_menu(callback: CallbackQuery):
+    text = "⚒️ **Верстак**\n\nВыберите, что хотите скрафтить:"
+    await callback.message.edit_text(text, reply_markup=get_craft_kb())
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("craft_"))
+async def cb_craft_item(callback: CallbackQuery, db: Database):
+    item = callback.data.split("_")[1]
+    user_id = callback.from_user.id
+    
+    async def get_amount(item_type):
+        inv = await db.get_inventory_item(user_id, item_type)
+        return inv[2] if inv else 0
+        
+    wood = await get_amount("wood")
+    stone = await get_amount("stone")
+    
+    if item == "sword":
+        if wood < 10 or stone < 5:
+            return await callback.answer("Не хватает ресурсов! Нужно 10 🪵 и 5 🪨", show_alert=True)
+        await db.remove_inventory_amount(user_id, "wood", 10)
+        await db.remove_inventory_amount(user_id, "stone", 5)
+        await db.add_inventory_amount(user_id, "sword", 1)
+        name = "🗡️ Меч"
+    elif item == "armor":
+        if wood < 20 or stone < 10:
+            return await callback.answer("Не хватает ресурсов! Нужно 20 🪵 и 10 🪨", show_alert=True)
+        await db.remove_inventory_amount(user_id, "wood", 20)
+        await db.remove_inventory_amount(user_id, "stone", 10)
+        await db.add_inventory_amount(user_id, "armor", 1)
+        name = "🛡️ Броня"
+    elif item == "ring":
+        if stone < 50:
+            return await callback.answer("Не хватает ресурсов! Нужно 50 🪨", show_alert=True)
+        if not await db.deduct_coins(user_id, 1000):
+            return await callback.answer("Не хватает 1000 🪙", show_alert=True)
+        await db.remove_inventory_amount(user_id, "stone", 50)
+        await db.add_inventory_amount(user_id, "ring", 1)
+        name = "💍 Обручальное Кольцо"
+    else:
         return
         
-    items = {}
-    for item in inventory:
-        item_type = item[2]
-        item_val = item[3]
-        key = f"{item_type}:{item_val}"
-        items[key] = items.get(key, 0) + 1
-        
-    text = "🎒 **Ваш Инвентарь:**\n\n"
-    for key, count in items.items():
-        t, v = key.split(":")
-        emoji = "📦"
-        if t == "material": emoji = "⛏️"
-        elif t == "title": emoji = "🎖️"
-        elif t == "pet": emoji = "🐾"
-        
-        text += f"{emoji} {v} (x{count})\n"
-        
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔨 Крафт Питомца", callback_data="craft_pet")]
-    ])
-    await message.answer(text, reply_markup=kb)
-
-@router.callback_query(F.data == "craft_pet")
-async def cb_craft_pet(callback: CallbackQuery, db: Database):
-    inventory = await db.get_user_inventory(callback.from_user.id)
-    materials = [item for item in inventory if item[2] == "material"]
-    
-    wood = sum(1 for m in materials if m[3] == "Дерево")
-    metal = sum(1 for m in materials if m[3] == "Металл")
-    crystal = sum(1 for m in materials if m[3] == "Кристалл")
-    
-    text = "🔨 **Крафт Питомца**\n\nДля создания Питомца-Помощника (+20% XP) нужно:\n"
-    text += f"- Дерево: {wood}/2\n"
-    text += f"- Металл: {metal}/2\n"
-    text += f"- Кристалл: {crystal}/1\n\n"
-    
-    if wood >= 2 and metal >= 2 and crystal >= 1:
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="✨ Создать Питомца!", callback_data="do_craft_pet")]
-        ])
-    else:
-        text += "❌ У вас недостаточно материалов. Выполняйте контракты (квесты) чтобы найти их."
-        kb = InlineKeyboardMarkup(inline_keyboard=[])
-        
-    await callback.message.edit_text(text, reply_markup=kb)
-
-@router.callback_query(F.data == "do_craft_pet")
-async def cb_do_craft_pet(callback: CallbackQuery, db: Database):
-    # In a real app we'd delete the specific material rows. 
-    # For now we'll just delete matching items by executing raw sql.
-    for mat_name, count in [("Дерево", 2), ("Металл", 2), ("Кристалл", 1)]:
-        await db._conn.execute('DELETE FROM inventory WHERE id IN (SELECT id FROM inventory WHERE user_id = ? AND item_type = "material" AND item_value = ? LIMIT ?)', (callback.from_user.id, mat_name, count))
-    
-    await db.add_inventory_item(callback.from_user.id, "pet", "Слайм-Помощник")
-    await db._conn.commit()
-    
-    await callback.message.edit_text("🎉 **Успех!** Вы скрафтили **Слайма-Помощника**!\nТеперь вы получаете больше XP.")
+    await callback.answer(f"Вы успешно создали {name}!", show_alert=True)
+    await cb_inventory(callback, db)

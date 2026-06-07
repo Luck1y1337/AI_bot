@@ -26,6 +26,7 @@ def get_shop_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="🍜 Рамен (300 🪙)", callback_data="shop_buy_ramen")],
         [InlineKeyboardButton(text="🎫 Титул 'Семпай' (1000 🪙)", callback_data="shop_buy_title_sempai")],
         [InlineKeyboardButton(text="👑 VIP: Кастомная ИИ-Роль (5000 🪙)", callback_data="shop_buy_vip_ai")],
+        [InlineKeyboardButton(text="🌑 Чёрный Рынок", callback_data="eco_black_market")],
         [InlineKeyboardButton(text="« Назад в Заработок", callback_data="cat_income")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=kb)
