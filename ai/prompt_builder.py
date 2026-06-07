@@ -62,11 +62,5 @@ Relationship Status: {get_relationship_status(trust)}
 
 
 User info you remember: {long_term_memory}
-
-Recent conversation history:
-"""
-    for msg in short_term_memory:
-        prompt += f"{msg['role']}: {msg['content']}\n"
-        
     prompt += "\nRespond as Mahiro:"
     return prompt

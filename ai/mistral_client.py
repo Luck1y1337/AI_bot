@@ -9,18 +9,22 @@ class MistralClient:
         self.api_key = api_key
         self.client = httpx.AsyncClient(timeout=30.0)
 
-    async def generate_response(self, prompt: str, system_prompt: str) -> str:
+    async def generate_response(self, prompt: str, system_prompt: str, history: list = None) -> str:
         url = "https://api.mistral.ai/v1/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
+        
+        messages = [{"role": "system", "content": system_prompt}]
+        if history:
+            for msg in history:
+                messages.append({"role": msg["role"], "content": msg["content"]})
+        messages.append({"role": "user", "content": prompt})
+        
         data = {
             "model": "mistral-small-latest",
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt}
-            ]
+            "messages": messages
         }
         
         for attempt in range(3):

@@ -17,6 +17,7 @@ def get_market_kb(page: int, total_pages: int) -> InlineKeyboardMarkup:
     if nav:
         kb.append(nav)
     kb.append([InlineKeyboardButton(text="➕ Продать предмет", callback_data="market_sell")])
+    kb.append([InlineKeyboardButton(text="🛍️ Мои Лоты", callback_data="market_my_lots")])
     kb.append([InlineKeyboardButton(text="🔙 Назад", callback_data="menu_economy")])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
@@ -67,6 +68,7 @@ async def show_market(callback: CallbackQuery, db: Database, page: int):
         nav.append(InlineKeyboardButton(text="➡️", callback_data=f"market_page_{page+1}"))
     if nav: kb.append(nav)
     kb.append([InlineKeyboardButton(text="➕ Выставить предмет", callback_data="market_sell")])
+    kb.append([InlineKeyboardButton(text="🛍️ Мои Лоты", callback_data="market_my_lots")])
     kb.append([InlineKeyboardButton(text="🔙 Назад", callback_data="menu_economy")])
     
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
@@ -122,21 +124,42 @@ async def cb_market_buy(callback: CallbackQuery, db: Database, bot: Bot):
 
 @router.callback_query(F.data == "market_sell")
 async def cb_market_sell(callback: CallbackQuery, db: Database):
+    await show_market_sell_page(callback, db, 0)
+
+@router.callback_query(F.data.startswith("market_sell_page_"))
+async def cb_market_sell_page(callback: CallbackQuery, db: Database):
+    page = int(callback.data.split("_")[-1])
+    await show_market_sell_page(callback, db, page)
+
+async def show_market_sell_page(callback: CallbackQuery, db: Database, page: int):
     user_cards = await db.get_user_cards(callback.from_user.id)
     if not user_cards:
         await callback.answer("У вас нет карточек для продажи!", show_alert=True)
         return
         
-    text = "🛒 **Выберите карточку для продажи:**\n\n"
+    items_per_page = 10
+    total_pages = (len(user_cards) - 1) // items_per_page + 1
+    if page >= total_pages: page = total_pages - 1
+    
+    start_idx = page * items_per_page
+    page_cards = user_cards[start_idx:start_idx+items_per_page]
+    
+    text = f"🛒 <b>Выберите карточку для продажи:</b> (Стр. {page+1}/{total_pages})\n\n"
     kb = []
     
-    # We will just show the first 10 cards to avoid huge keyboards
-    for uc in user_cards[:10]:
+    for uc in page_cards:
         c_name, c_lvl = uc[3], uc[2]
         kb.append([InlineKeyboardButton(text=f"{c_name} (Ур.{c_lvl})", callback_data=f"market_sell_choose_{uc[1]}")])
         
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton(text="⬅️", callback_data=f"market_sell_page_{page-1}"))
+    if page < total_pages - 1:
+        nav.append(InlineKeyboardButton(text="➡️", callback_data=f"market_sell_page_{page+1}"))
+    if nav: kb.append(nav)
+    
     kb.append([InlineKeyboardButton(text="🔙 Назад", callback_data="eco_market")])
-    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
 
 @router.callback_query(F.data.startswith("market_sell_choose_"))
 async def cb_market_sell_choose(callback: CallbackQuery, state: FSMContext):
@@ -179,3 +202,54 @@ async def process_sell_price(message: Message, state: FSMContext, db: Database):
     
     await message.answer(f"✅ Карточка успешно выставлена на глобальный рынок за {price} 🪙!")
     await state.clear()
+
+@router.callback_query(F.data == "market_my_lots")
+async def cb_market_my_lots(callback: CallbackQuery, db: Database):
+    async with db._conn.execute('SELECT id, item_type, item_id, price FROM market_lots WHERE seller_id = ? ORDER BY id DESC', (callback.from_user.id,)) as cursor:
+        lots = await cursor.fetchall()
+        
+    if not lots:
+        await callback.answer("У вас нет активных лотов на рынке!", show_alert=True)
+        return
+        
+    text = "🛍️ <b>Ваши активные лоты:</b>\n\n"
+    kb = []
+    
+    for lot in lots:
+        l_id, i_type, i_id, price = lot
+        item_name = f"Неизвестно ({i_type})"
+        
+        if i_type == "card":
+            async with db._conn.execute('SELECT name FROM cards WHERE id = ?', (i_id,)) as c:
+                row = await c.fetchone()
+                if row: item_name = f"Карточка: {row[0]}"
+                
+        text += f"📦 <b>{item_name}</b> | Цена: {price} 🪙\n"
+        kb.append([InlineKeyboardButton(text=f"❌ Снять с продажи ({item_name})", callback_data=f"market_cancel_{l_id}")])
+        
+    kb.append([InlineKeyboardButton(text="🔙 Назад", callback_data="eco_market")])
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
+
+@router.callback_query(F.data.startswith("market_cancel_"))
+async def cb_market_cancel(callback: CallbackQuery, db: Database):
+    lot_id = int(callback.data.split("_")[-1])
+    
+    async with db._conn.execute('SELECT id, seller_id, item_type, item_id FROM market_lots WHERE id = ?', (lot_id,)) as cursor:
+        lot = await cursor.fetchone()
+        
+    if not lot or lot[1] != callback.from_user.id:
+        await callback.answer("Этот лот не найден или не принадлежит вам!", show_alert=True)
+        return
+        
+    _, s_id, i_type, i_id = lot
+    
+    # Delete lot
+    await db._conn.execute('DELETE FROM market_lots WHERE id = ?', (lot_id,))
+    
+    # Return item
+    if i_type == "card":
+        await db.add_user_card(s_id, i_id)
+        
+    await db._conn.commit()
+    await callback.answer("Лот успешно снят с продажи! Предмет возвращен в инвентарь.", show_alert=True)
+    await cb_market_my_lots(callback, db)

@@ -121,7 +121,7 @@ async def process_voice_text(message: Message, state: FSMContext, db: Database, 
     
     # Process like normal message
     sys_prompt = build_system_prompt(user.mood, user.trust, memory.short.get_history(user.id), memory.long.get_user_memory(user.id), modifier)
-    response = await mistral.generate_response(text, sys_prompt)
+    response = await mistral.generate_response(text, sys_prompt, memory.short.get_history(user.id))
     
     # Generate TTS
     ogg_path = await generate_tts(response)
@@ -146,7 +146,7 @@ async def process_photo(message: Message, db: Database, mistral: MistralClient, 
     modifier = row[0] if row else ""
     
     sys_prompt = build_system_prompt(user.mood, user.trust, memory.short.get_history(user.id), memory.long.get_user_memory(user.id), modifier)
-    response = await mistral.generate_response(user_prompt, sys_prompt)
+    response = await mistral.generate_response(user_prompt, sys_prompt, memory.short.get_history(user.id))
     
     memory.short.add_message(user.id, "assistant", response)
     
@@ -265,7 +265,7 @@ async def process_message(message: Message, db: Database, mistral: MistralClient
     modifier = row[0] if row else ""
     
     sys_prompt = build_system_prompt(user.mood, user.trust, memory.short.get_history(user_id), memory.long.get_user_memory(user_id), modifier, user.custom_prompt)
-    response = await mistral.generate_response(text, sys_prompt)
+    response = await mistral.generate_response(text, sys_prompt, memory.short.get_history(user_id))
     memory.short.add_message(user_id, "assistant", response)
     
     await db.process_contract_action(user_id, "send_messages", 1)
