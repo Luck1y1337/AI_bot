@@ -29,7 +29,7 @@ def get_gradient_image(size, start_color, end_color):
     base.paste(top, (0, 0), mask)
     return base
 
-async def generate_profile_image(user: User, avatar_bytes: bytes = None) -> io.BytesIO:
+async def generate_profile_image(user: User, avatar_bytes: bytes = None, frame: str = "default") -> io.BytesIO:
     bg_width, bg_height = 800, 450
     
     bg_path = "media/profile_bg/default.png"
@@ -77,8 +77,20 @@ async def generate_profile_image(user: User, avatar_bytes: bytes = None) -> io.B
     circular_avatar = Image.new("RGBA", (avatar_size, avatar_size), (0, 0, 0, 0))
     circular_avatar.paste(avatar_img, (0, 0), mask=mask)
     
-    # Draw avatar border
-    draw.ellipse((avatar_x-4, avatar_y-4, avatar_x+avatar_size+4, avatar_y+avatar_size+4), fill=(255, 255, 255, 200))
+    # Frame colors mapping
+    frame_colors = {
+        "default": (255, 255, 255, 200),
+        "gold": (255, 215, 0, 255),
+        "neon": (57, 255, 20, 255),
+        "blood": (138, 3, 3, 255),
+        "diamond": (185, 242, 255, 255)
+    }
+    
+    border_color = frame_colors.get(frame, frame_colors["default"])
+    border_width = 8 if frame != "default" else 4
+    
+    # Draw avatar border (Frame)
+    draw.ellipse((avatar_x-border_width, avatar_y-border_width, avatar_x+avatar_size+border_width, avatar_y+avatar_size+border_width), fill=border_color)
     base.paste(circular_avatar, (avatar_x, avatar_y), circular_avatar)
 
     # 4. Draw User Info

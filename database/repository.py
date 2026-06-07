@@ -263,6 +263,22 @@ class Database:
             pass
             
         try:
+            await self._conn.execute('''
+            CREATE TABLE IF NOT EXISTS crypto_market (
+                coin_name TEXT PRIMARY KEY,
+                current_price INTEGER,
+                last_updated REAL
+            )
+            ''')
+        except Exception:
+            pass
+            
+        try:
+            await self._conn.execute('ALTER TABLE users ADD COLUMN profile_frame TEXT DEFAULT "default"')
+        except Exception:
+            pass
+            
+        try:
             await self._conn.execute('ALTER TABLE users ADD COLUMN username TEXT DEFAULT ""')
         except Exception:
             pass
@@ -300,14 +316,14 @@ class Database:
             await self._conn.close()
 
     async def get_user(self, user_id: int) -> User:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip FROM users WHERE id = ?', (user_id,)) as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip, profile_frame FROM users WHERE id = ?', (user_id,)) as cursor:
             row = await cursor.fetchone()
             if row:
                 return User(*row)
             # Create user if not exists
             await self._conn.execute('INSERT INTO users (id) VALUES (?)', (user_id,))
             await self._conn.commit()
-            return User(user_id, 50, 'normal', 0, 0, 0, False, 0.0, "", None, False)
+            return User(user_id, 50, 'normal', 0, 0, 0, False, 0.0, "", None, False, "default")
 
     async def deduct_coins(self, user_id: int, amount: int) -> bool:
         cursor = await self._conn.execute('UPDATE users SET coins = coins - ? WHERE id = ? AND coins >= ?', (amount, user_id, amount))
@@ -320,12 +336,12 @@ class Database:
 
     async def update_user(self, user: User):
         await self._conn.execute('''
-            UPDATE users SET trust = ?, mood = ?, message_count = ?, xp = ?, coins = ?, is_banned = ?, last_daily_time = ?, username = ?, custom_prompt = ?, is_vip = ? WHERE id = ?
-        ''', (user.trust, user.mood, user.message_count, user.xp, user.coins, user.is_banned, user.last_daily_time, user.username, user.custom_prompt, user.is_vip, user.id))
+            UPDATE users SET trust = ?, mood = ?, message_count = ?, xp = ?, coins = ?, is_banned = ?, last_daily_time = ?, username = ?, custom_prompt = ?, is_vip = ?, profile_frame = ? WHERE id = ?
+        ''', (user.trust, user.mood, user.message_count, user.xp, user.coins, user.is_banned, user.last_daily_time, user.username, user.custom_prompt, user.is_vip, user.profile_frame, user.id))
         await self._conn.commit()
         
     async def get_all_users(self) -> List[User]:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip FROM users') as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip, profile_frame FROM users') as cursor:
             rows = await cursor.fetchall()
             return [User(*row) for row in rows]
             
@@ -632,3 +648,22 @@ class Database:
     async def remove_bounty(self, target_id: int):
         await self._conn.execute('DELETE FROM bounties WHERE target_user_id = ?', (target_id,))
         await self._conn.commit()
+
+    # --- Crypto Market ---
+    async def get_crypto_price(self, coin_name: str) -> Optional[tuple]:
+        async with self._conn.execute('SELECT current_price, last_updated FROM crypto_market WHERE coin_name = ?', (coin_name,)) as cursor:
+            return await cursor.fetchone()
+            
+    async def update_crypto_price(self, coin_name: str, price: int):
+        await self._conn.execute('INSERT OR REPLACE INTO crypto_market (coin_name, current_price, last_updated) VALUES (?, ?, ?)', (coin_name, price, __import__('time').time()))
+        await self._conn.commit()
+
+    # --- Profile Frame ---
+    async def update_profile_frame(self, user_id: int, frame: str):
+        await self._conn.execute('UPDATE users SET profile_frame = ? WHERE id = ?', (frame, user_id))
+        await self._conn.commit()
+        
+    async def get_profile_frame(self, user_id: int) -> str:
+        async with self._conn.execute('SELECT profile_frame FROM users WHERE id = ?', (user_id,)) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row and row[0] else "default"

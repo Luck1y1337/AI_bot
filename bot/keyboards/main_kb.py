@@ -80,8 +80,10 @@ def get_eco_games_kb() -> InlineKeyboardMarkup:
     kb = [
         [InlineKeyboardButton(text="🎰 Казино (Coinflip)", callback_data="eco_casino"),
          InlineKeyboardButton(text="🔫 Рулетка", callback_data="roul_main")],
-        [InlineKeyboardButton(text="🎰 Гача (Карточки)", callback_data="gacha_menu"),
+        [InlineKeyboardButton(text="✌️ Камень-Ножницы", callback_data="rps_main"),
          InlineKeyboardButton(text="🤖 Игры с ИИ", callback_data="ai_games_menu")],
+        [InlineKeyboardButton(text="🎰 Гача (Карточки)", callback_data="gacha_menu"),
+         InlineKeyboardButton(text="🔮 Подземелье", callback_data="eco_dungeon")],
         [InlineKeyboardButton(text="🐾 Тамагочи", callback_data="eco_pets"),
          InlineKeyboardButton(text="🎮 Викторина", callback_data="eco_quiz")],
         [InlineKeyboardButton(text="⚔️ Рейд на Босса", callback_data="eco_raid")],
@@ -104,7 +106,8 @@ def get_eco_social_kb() -> InlineKeyboardMarkup:
     kb = [
         [InlineKeyboardButton(text="🏰 Кланы", callback_data="eco_clans"),
          InlineKeyboardButton(text="💍 Предложить Брак", callback_data="eco_marry")],
-        [InlineKeyboardButton(text="🎯 Доска Наград", callback_data="eco_bounties")],
+        [InlineKeyboardButton(text="🎯 Доска Наград", callback_data="eco_bounties"),
+         InlineKeyboardButton(text="🤝 Трейд (Предметы)", callback_data="eco_trade")],
         [InlineKeyboardButton(text="💸 Перевод Коинов", callback_data="eco_transfer"),
          InlineKeyboardButton(text="👍 +Репутация", callback_data="eco_rep")],
         [InlineKeyboardButton(text="« Назад в Меню", callback_data="back_to_main_eco")]

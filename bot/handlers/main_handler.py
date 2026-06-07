@@ -77,7 +77,7 @@ async def cmd_stats(message: Message, db: Database, bot: Bot):
     except Exception:
         pass
         
-    image_io = await generate_profile_image(user, avatar_bytes)
+    image_io = await generate_profile_image(user, avatar_bytes, frame=user.profile_frame)
     await message.answer_photo(BufferedInputFile(image_io.getvalue(), "profile.png"), caption=text)
 
 

@@ -92,12 +92,17 @@ async def main():
     dp.include_router(economy_handler.router)
     dp.include_router(clan_handler.router)
     
-    from bot.handlers import inventory_handler, marry_handler, bounty_handler, roulette_pvp_handler, black_market_handler
+    from bot.handlers import inventory_handler, marry_handler, bounty_handler, roulette_pvp_handler, black_market_handler, crypto_handler, rps_handler, trade_handler, customization_handler, dungeon_handler
     dp.include_router(inventory_handler.router)
     dp.include_router(marry_handler.router)
     dp.include_router(bounty_handler.router)
     dp.include_router(roulette_pvp_handler.router)
     dp.include_router(black_market_handler.router)
+    dp.include_router(crypto_handler.router)
+    dp.include_router(rps_handler.router)
+    dp.include_router(trade_handler.router)
+    dp.include_router(customization_handler.router)
+    dp.include_router(dungeon_handler.router)
     
     dp.include_router(gacha_handler.router)
     dp.include_router(pet_handler.router)
@@ -109,9 +114,20 @@ async def main():
     from bot.handlers import ai_games_handler
     dp.include_router(ai_games_handler.router)
 
+    async def update_crypto_market(db_instance: Database):
+        price_row = await db_instance.get_crypto_price("mahiro_coin")
+        old_price = price_row[0] if price_row else 1000
+        import random
+        # Change price between -50% and +200%
+        multiplier = random.uniform(0.5, 3.0)
+        new_price = int(old_price * multiplier)
+        if new_price < 10: new_price = 10
+        await db_instance.update_crypto_price("mahiro_coin", new_price)
+        
     from utils.backup import perform_backup
     scheduler = AsyncIOScheduler()
     scheduler.add_job(check_reminders, 'interval', seconds=60, args=[bot, db])
+    scheduler.add_job(update_crypto_market, 'interval', minutes=60, args=[db])
     scheduler.add_job(proactive_message, 'cron', hour='8,23', args=[bot, db, mistral, memory])
     scheduler.add_job(perform_backup, 'cron', hour='3', minute='0', args=[bot])
     scheduler.start()
