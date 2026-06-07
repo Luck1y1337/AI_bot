@@ -10,6 +10,7 @@ class AdminStates(StatesGroup):
     waiting_for_xp_user_id = State()
     waiting_for_xp_amount = State()
     waiting_for_history_user_id = State()
+    waiting_for_reply_text = State()
 
 class SupportStates(StatesGroup):
     waiting_for_ticket = State()

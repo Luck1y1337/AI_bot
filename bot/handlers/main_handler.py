@@ -180,6 +180,16 @@ async def process_promo_code(message: Message, state: FSMContext, db: Database):
         await state.clear()
         return
         
+    # Check if user already used this promo
+    action_str = f"promo_{code}"
+    async with db._conn.execute('SELECT id FROM transactions WHERE sender_id = ? AND action_type = ?', (message.from_user.id, action_str)) as cursor:
+        used = await cursor.fetchone()
+        
+    if used:
+        await message.answer("Вы уже активировали этот промокод ранее!")
+        await state.clear()
+        return
+        
     # Give reward
     user = await db.get_user(message.from_user.id)
     user.coins += coins
@@ -188,6 +198,7 @@ async def process_promo_code(message: Message, state: FSMContext, db: Database):
     
     # Increment uses
     await db._conn.execute('UPDATE promocodes SET current_uses = current_uses + 1 WHERE code = ?', (code,))
+    await db.add_transaction(message.from_user.id, 0, coins, action_str)
     await db._conn.commit()
     
     await message.answer(f"🎉 Промокод активирован! Ты получил {coins} 🪙 и {xp} ✨ XP.")

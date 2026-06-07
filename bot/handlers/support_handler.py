@@ -38,30 +38,48 @@ async def process_ticket(message: Message, state: FSMContext, bot: Bot):
         await state.clear()
         return
 
-    text = f"🎫 **Новый тикет от {message.from_user.id} (@{message.from_user.username or 'без_юзернейма'}):**\n\n{message.text}\n\n*Для ответа используйте команду /reply {message.from_user.id} <ваш ответ>*"
+    text = f"🎫 <b>Новый тикет от {message.from_user.id} (@{message.from_user.username or 'без_юзернейма'}):</b>\n\n{message.text}"
+    
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✉️ Ответить", callback_data=f"support_reply_{message.from_user.id}")]
+    ])
+    
     try:
-        await bot.send_message(admin_id, text)
+        await bot.send_message(admin_id, text, reply_markup=kb, parse_mode="HTML")
         await message.answer("Твоё сообщение отправлено. Жди, пока мы его прочитаем.", reply_markup=get_main_menu(message.from_user.id))
     except Exception as e:
         await message.answer("Произошла ошибка при отправке. Админы спят.")
     
     await state.clear()
 
-@router.message(F.text.startswith("/reply "))
-async def cmd_reply(message: Message, bot: Bot):
-    if message.from_user.id not in settings.ADMIN_USER_IDS:
-        return
+from bot.fsm.states import AdminStates
+
+@router.callback_query(F.data.startswith("support_reply_"))
+async def cb_support_reply(callback: CallbackQuery, state: FSMContext):
+    if callback.from_user.id not in settings.ADMIN_USER_IDS: return
     
-    parts = message.text.split(" ", 2)
-    if len(parts) < 3:
-        await message.answer("Использование: /reply <user_id> <текст ответа>")
+    user_id = int(callback.data.split("_")[2])
+    await state.set_state(AdminStates.waiting_for_reply_text)
+    await state.update_data(reply_target_id=user_id)
+    
+    await callback.message.answer(f"Введите текст ответа для пользователя {user_id}:")
+    await callback.answer()
+
+@router.message(AdminStates.waiting_for_reply_text)
+async def process_admin_reply(message: Message, state: FSMContext, bot: Bot):
+    data = await state.get_data()
+    user_id = data.get("reply_target_id")
+    
+    if not user_id:
+        await message.answer("Ошибка: ID пользователя потерян.")
+        await state.clear()
         return
         
-    user_id = parts[1]
-    reply_text = parts[2]
-    
     try:
-        await bot.send_message(user_id, f"💌 **Ответ от Службы Поддержки (Махиро):**\n\n{reply_text}")
+        await bot.send_message(user_id, f"💌 <b>Ответ от Службы Поддержки (Махиро):</b>\n\n{message.text}", parse_mode="HTML")
         await message.answer("Ответ успешно отправлен пользователю.")
     except Exception as e:
         await message.answer(f"Не удалось отправить ответ: {e}")
+        
+    await state.clear()

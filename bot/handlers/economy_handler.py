@@ -47,13 +47,21 @@ async def cb_eco_daily(callback: CallbackQuery, db: Database):
     user = await db.get_user(callback.from_user.id)
     now = time.time()
     
-    if user.last_daily_time and (now - user.last_daily_time < 86400):
-        remaining = 86400 - (now - user.last_daily_time)
+    # Check last daily bonus in transactions to prevent race conditions
+    async with db._conn.execute('SELECT timestamp FROM transactions WHERE sender_id = ? AND action_type = ? ORDER BY timestamp DESC LIMIT 1', (user.id, "daily_bonus")) as cursor:
+        last_daily = await cursor.fetchone()
+        
+    if last_daily and (now - last_daily[0] < 86400):
+        remaining = 86400 - (now - last_daily[0])
         from utils.time_utils import format_time_remaining
         await callback.answer(f"Вы уже получали бонус! Возвращайтесь через {format_time_remaining(now + remaining)}.", show_alert=True)
         return
         
     reward = random.randint(300, 700)
+    
+    # Add transaction as an atomic lock
+    await db.add_transaction(user.id, 0, reward, "daily_bonus")
+    
     user.last_daily_time = now
     await db.update_user(user)
     await db.add_coins(user.id, reward)
