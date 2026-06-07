@@ -17,7 +17,7 @@ def get_businesses_kb(businesses: list) -> InlineKeyboardMarkup:
         if not has_arcade:
             kb.append([InlineKeyboardButton(text="🕹 Купить Аркадный автомат (2000 🪙)", callback_data="buy_biz_arcade")])
             
-    kb.append([InlineKeyboardButton(text="⬅️ Назад в Экономику", callback_data="back_to_economy")])
+    kb.append([InlineKeyboardButton(text="⬅️ Назад в Заработок", callback_data="cat_income")])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
 def get_shop_kb() -> InlineKeyboardMarkup:
@@ -26,7 +26,7 @@ def get_shop_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="🍜 Рамен (300 🪙)", callback_data="shop_buy_ramen")],
         [InlineKeyboardButton(text="🎫 Титул 'Семпай' (1000 🪙)", callback_data="shop_buy_title_sempai")],
         [InlineKeyboardButton(text="👑 VIP: Кастомная ИИ-Роль (5000 🪙)", callback_data="shop_buy_vip_ai")],
-        [InlineKeyboardButton(text="⬅️ Назад в Экономику", callback_data="back_to_economy")]
+        [InlineKeyboardButton(text="⬅️ Назад в Заработок", callback_data="cat_income")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
@@ -36,6 +36,6 @@ def get_bank_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="📤 Снять вклад + %", callback_data="bank_withdraw")],
         [InlineKeyboardButton(text="💸 Взять кредит (500 🪙)", callback_data="bank_loan")],
         [InlineKeyboardButton(text="💳 Погасить кредит", callback_data="bank_repay")],
-        [InlineKeyboardButton(text="⬅️ Назад в Экономику", callback_data="back_to_economy")]
+        [InlineKeyboardButton(text="⬅️ Назад в Заработок", callback_data="cat_income")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=kb)
