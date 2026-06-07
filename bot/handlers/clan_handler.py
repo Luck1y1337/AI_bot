@@ -396,7 +396,7 @@ async def process_clan_kick(message: Message, state: FSMContext, db: Database):
     await state.clear()
 
 # --- Clan Bosses ---
-from utils.progress_bar import generate_progress_bar
+from utils.formatting import generate_progress_bar
 import time
 
 @router.callback_query(F.data == "clan_boss_menu")

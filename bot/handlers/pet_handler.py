@@ -1,9 +1,9 @@
-﻿from aiogram import Router, F
+from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, Message
 from database.repository import Database
 from aiogram.fsm.context import FSMContext
 import time
-from utils.progress_bar import generate_progress_bar
+from utils.formatting import generate_progress_bar
 import random
 
 router = Router()
