@@ -16,22 +16,26 @@ async def cmd_economy_menu(message: Message):
     await message.answer("Добро пожаловать в раздел Игр и Экономики! Выберите действие:", reply_markup=get_economy_menu())
 
 @router.callback_query(F.data.in_(["menu_economy", "menu_games", "back_to_main_eco"]))
-async def cb_economy_menu_back(callback: CallbackQuery):
+async def cb_economy_menu_back(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
     await callback.message.edit_text("🌟 **Интерактив и Экономика**\n\nВыберите категорию:", reply_markup=get_economy_menu())
     await callback.answer()
 
 @router.callback_query(F.data == "cat_games")
-async def cb_cat_games(callback: CallbackQuery):
+async def cb_cat_games(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
     await callback.message.edit_text("🎮 **Игры и Развлечения**\n\nИспытай удачу и сразись с другими!", reply_markup=get_eco_games_kb())
     await callback.answer()
 
 @router.callback_query(F.data == "cat_income")
-async def cb_cat_income(callback: CallbackQuery):
+async def cb_cat_income(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
     await callback.message.edit_text("💼 **Заработок и Финансы**\n\nИнвестируй, торгуй и выполняй контракты!", reply_markup=get_eco_income_kb())
     await callback.answer()
 
 @router.callback_query(F.data == "cat_social")
-async def cb_cat_social(callback: CallbackQuery):
+async def cb_cat_social(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
     await callback.message.edit_text("🤝 **Социальное**\n\nВзаимодействуй с другими игроками!", reply_markup=get_eco_social_kb())
     await callback.answer()
 

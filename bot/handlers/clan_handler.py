@@ -58,8 +58,8 @@ async def process_clan_name(message: Message, state: FSMContext, db: Database):
         await state.clear()
         return
     
-    clan_id = await db.create_clan(name, user.id)
-    await db.add_transaction(user.id, 0, 10000, "clan_create")
+    clan_id = await db.create_clan(name, message.from_user.id)
+    await db.add_transaction(message.from_user.id, 0, 10000, "clan_create")
     
     await message.answer(f"🎉 Клан **{name}** успешно создан!")
     await state.clear()

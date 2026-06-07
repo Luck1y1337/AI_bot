@@ -8,13 +8,18 @@ router = Router()
 
 RPS_LOBBIES = {}
 
-def get_rps_main_kb() -> InlineKeyboardMarkup:
-    kb = [
+def get_rps_main_kb(active_lobbies=None) -> InlineKeyboardMarkup:
+    kb = []
+    if active_lobbies:
+        for lid in active_lobbies:
+            kb.append([InlineKeyboardButton(text=f"⚔️ Присоединиться к Лобби #{lid}", callback_data=f"rps_join_{lid}")])
+            
+    kb.extend([
         [InlineKeyboardButton(text="✂️ Создать Лобби (500 🪙)", callback_data="rps_create_500")],
         [InlineKeyboardButton(text="✂️ Создать Лобби (2000 🪙)", callback_data="rps_create_2000")],
         [InlineKeyboardButton(text="👀 Обновить список", callback_data="rps_refresh")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="eco_games")]
-    ]
+    ])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
 def get_rps_join_kb(lobby_id: str) -> InlineKeyboardMarkup:
@@ -45,7 +50,7 @@ async def cb_rps_main(callback: CallbackQuery):
             l = RPS_LOBBIES[lid]
             text += f"\nЛобби #{lid} | Ставка: {l['bet']} 🪙 | Создатель: {l['p1']}"
             
-    await callback.message.edit_text(text, reply_markup=get_rps_main_kb())
+    await callback.message.edit_text(text, reply_markup=get_rps_main_kb(active_lobbies))
     if callback.data == "rps_refresh":
         await callback.answer("Обновлено.")
 
@@ -158,7 +163,8 @@ async def cb_rps_pick(callback: CallbackQuery, db: Database):
             await db.add_coins(u2, bet*2)
             await db.add_transaction(u1, u2, bet, "rps_win")
             
-        await callback.message.edit_text(text, reply_markup=get_rps_main_kb())
+        active_lobbies = [k for k, v in RPS_LOBBIES.items() if v["status"] == "waiting"]
+        await callback.message.edit_text(text, reply_markup=get_rps_main_kb(active_lobbies))
     else:
         # One player has chosen, wait for other
         text = f"✌️ **Лобби #{lobby_id}**\n\nОдин из игроков уже сделал выбор!\nЖдем второго..."

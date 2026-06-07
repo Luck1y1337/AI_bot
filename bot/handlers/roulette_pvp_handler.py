@@ -8,14 +8,19 @@ router = Router()
 
 ROULETTE_LOBBIES = {}
 
-def get_roulette_main_kb() -> InlineKeyboardMarkup:
-    kb = [
+def get_roulette_main_kb(active_lobbies=None) -> InlineKeyboardMarkup:
+    kb = []
+    if active_lobbies:
+        for lid in active_lobbies:
+            kb.append([InlineKeyboardButton(text=f"🔫 Присоединиться к Лобби #{lid}", callback_data=f"roul_join_{lid}")])
+            
+    kb.extend([
         [InlineKeyboardButton(text="🔫 Создать Лобби (1000 🪙)", callback_data="roul_create_1000")],
         [InlineKeyboardButton(text="🔫 Создать Лобби (5000 🪙)", callback_data="roul_create_5000")],
         [InlineKeyboardButton(text="🔫 Создать Лобби (10000 🪙)", callback_data="roul_create_10000")],
         [InlineKeyboardButton(text="👀 Обновить список", callback_data="roul_refresh")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="eco_games")]
-    ]
+    ])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
 def get_lobby_kb(lobby_id: str, is_owner: bool) -> InlineKeyboardMarkup:
@@ -45,7 +50,7 @@ async def cb_roulette_main(callback: CallbackQuery):
             l = ROULETTE_LOBBIES[lid]
             text += f"\nЛобби #{lid} | Ставка: {l['bet']} 🪙 | Игроков: {len(l['players'])}/6"
             
-    await callback.message.edit_text(text, reply_markup=get_roulette_main_kb())
+    await callback.message.edit_text(text, reply_markup=get_roulette_main_kb(active_lobbies))
     if callback.data == "roul_refresh":
         await callback.answer("Обновлено.")
 
@@ -177,7 +182,8 @@ async def cb_roul_shoot(callback: CallbackQuery, db: Database, bot: Bot):
         
         lobby["status"] = "finished"
         text = f"🏆 **ИГРА ОКОНЧЕНА!** Лобби #{lobby_id}\n\nПоследний выживший: {winner}\nОн забирает весь банк: {bank} 🪙!"
-        await callback.message.edit_text(text, reply_markup=get_roulette_main_kb())
+        active_lobbies = [k for k, v in ROULETTE_LOBBIES.items() if v["status"] == "waiting"]
+        await callback.message.edit_text(text, reply_markup=get_roulette_main_kb(active_lobbies))
         # Clean up later or leave it to be overwritten
     else:
         next_player = lobby["players"][lobby["turn_idx"]]
