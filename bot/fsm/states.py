@@ -26,6 +26,9 @@ class CasinoStates(StatesGroup):
 class MarryStates(StatesGroup):
     waiting_for_partner = State()
 
+class RepStates(StatesGroup):
+    waiting_for_target = State()
+
 class ShopStates(StatesGroup):
     waiting_for_custom_prompt = State()
 

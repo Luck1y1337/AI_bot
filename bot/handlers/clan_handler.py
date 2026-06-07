@@ -50,14 +50,10 @@ async def process_clan_name(message: Message, state: FSMContext, db: Database):
         await message.answer("Клан с таким названием уже существует! Придумайте другое:")
         return
         
-    user = await db.get_user(message.from_user.id)
-    if user.coins < 10000:
+    if not await db.deduct_coins(message.from_user.id, 10000):
         await message.answer("Не хватает коинов.")
         await state.clear()
         return
-        
-    user.coins -= 10000
-    await db.update_user(user)
     
     clan_id = await db.create_clan(name, user.id)
     await db.add_transaction(user.id, 0, 10000, "clan_create")

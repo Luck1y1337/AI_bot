@@ -26,12 +26,12 @@ async def process_gift(callback: CallbackQuery, db: Database):
     user = await db.get_user(user_id)
     gift_info = GIFTS[gift_type]
     
-    if user.coins < gift_info["cost"]:
-        await callback.message.edit_text(f"У тебя всего {user.coins} 🪙, а это стоит {gift_info['cost']} 🪙! Возвращайся, когда заработаешь больше.")
+    if not await db.deduct_coins(user_id, gift_info["cost"]):
+        await callback.message.edit_text(f"Недостаточно коинов! Возвращайся, когда заработаешь больше.")
         await callback.answer()
         return
         
-    user.coins -= gift_info["cost"]
+    user = await db.get_user(user_id)
     user.trust = min(100, user.trust + gift_info["trust"])
     user.mood = gift_info["mood"]
     await db.update_user(user)

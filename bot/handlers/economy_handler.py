@@ -1,7 +1,7 @@
 from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from database.repository import Database
-from bot.fsm.states import PayStates, CasinoStates, MarryStates, ShopStates
+from bot.fsm.states import PayStates, CasinoStates, MarryStates, ShopStates, RepStates
 from aiogram.fsm.context import FSMContext
 from bot.keyboards.main_kb import get_pay_users_kb, get_economy_menu
 from bot.keyboards.economy_kb import get_businesses_kb, get_shop_kb, get_bank_kb
@@ -390,12 +390,10 @@ async def cb_eco_bank(callback: CallbackQuery, db: Database):
 
 @router.callback_query(F.data == "bank_deposit")
 async def cb_bank_deposit(callback: CallbackQuery, db: Database):
-    user = await db.get_user(callback.from_user.id)
-    if user.coins < 1000:
+    if not await db.deduct_coins(callback.from_user.id, 1000):
         await callback.answer("Для вклада нужно минимум 1000 🪙", show_alert=True)
         return
-    user.coins -= 1000
-    await db.update_user(user)
+    user = await db.get_user(callback.from_user.id)
     await db.add_bank_record(user.id, "deposit", 1000)
     await db.add_transaction(user.id, 0, 1000, "bank_deposit")
     await callback.answer("Вклад на 1000 🪙 успешно открыт!", show_alert=True)
@@ -427,6 +425,49 @@ async def cb_bank_withdraw(callback: CallbackQuery, db: Database):
     await db.add_transaction(0, user.id, total_amount, "bank_withdraw")
     
     await callback.answer(f"Вклады закрыты. Получено: {total_amount} 🪙", show_alert=True)
+    await cb_eco_bank(callback, db)
+
+@router.callback_query(F.data == "bank_loan")
+async def cb_bank_loan(callback: CallbackQuery, db: Database):
+    records = await db.get_user_bank_records(callback.from_user.id)
+    loans = [r for r in records if r[2] == 'loan']
+    if loans:
+        await callback.answer("У вас уже есть непогашенный кредит! Сначала верните его.", show_alert=True)
+        return
+        
+    user = await db.get_user(callback.from_user.id)
+    user.coins += 500
+    await db.update_user(user)
+    await db.add_bank_record(user.id, "loan", 500)
+    await db.add_transaction(0, user.id, 500, "bank_loan")
+    
+    await callback.answer("Кредит на 500 🪙 успешно взят! Не забудьте вернуть.", show_alert=True)
+    await cb_eco_bank(callback, db)
+
+@router.callback_query(F.data == "bank_repay")
+async def cb_bank_repay(callback: CallbackQuery, db: Database):
+    records = await db.get_user_bank_records(callback.from_user.id)
+    loans = [r for r in records if r[2] == 'loan']
+    if not loans:
+        await callback.answer("У вас нет активных кредитов.", show_alert=True)
+        return
+        
+    # Simplify: Repay all loans with 10% fixed interest
+    total_repay = 0
+    for r in loans:
+        total_repay += int(r[3] * 1.1)
+        
+    user = await db.get_user(callback.from_user.id)
+    if not await db.deduct_coins(user.id, total_repay):
+        await callback.answer(f"Для погашения нужно {total_repay} 🪙. У вас не хватает средств!", show_alert=True)
+        return
+        
+    for r in loans:
+        await db._conn.execute('DELETE FROM bank_records WHERE id = ?', (r[0],))
+    await db._conn.commit()
+    await db.add_transaction(user.id, 0, total_repay, "bank_repay")
+    
+    await callback.answer(f"Кредит успешно погашен! Списано {total_repay} 🪙", show_alert=True)
     await cb_eco_bank(callback, db)
 
 
@@ -551,19 +592,49 @@ async def marry_select(callback: CallbackQuery, db: Database, state: FSMContext,
         
     user = await db.get_user(callback.from_user.id)
     if user.coins < 5000:
-        await callback.answer("Для заключения брака нужно 5000 🪙 на кольца!", show_alert=True)
+        await callback.answer("Для предложения нужно 5000 🪙 на кольца!", show_alert=True)
         return
         
-    user.coins -= 5000
-    await db.update_user(user)
-    await db.add_marriage(user.id, target_id)
-    
-    await callback.message.edit_text(f"Поздравляем! 🎉 Вы успешно заключили брак с {target_id}! -5000 🪙 за кольца. Теперь вы оба получаете +10% к бизнесу.")
-    try:
-        await bot.send_message(target_id, f"💍 Пользователь {user.id} только что оплатил кольца и заключил с вами брак! Поздравляем!")
-    except: pass
-    
     await state.clear()
+    await callback.message.edit_text(f"💍 Вы сделали предложение пользователю {target_id}! Ожидаем его ответа (5000 🪙 будут списаны при согласии).")
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💍 Принять", callback_data=f"marry_accept_{user.id}")],
+        [InlineKeyboardButton(text="💔 Отказать", callback_data=f"marry_decline_{user.id}")]
+    ])
+    try:
+        await bot.send_message(target_id, f"💍 Пользователь {user.id} предлагает вам вступить в брак!\nБрак дает обоим +10% дохода с бизнесов.", reply_markup=kb)
+    except:
+        await callback.message.answer(f"Не удалось отправить сообщение пользователю {target_id}.")
+
+@router.callback_query(F.data.startswith("marry_accept_"))
+async def cb_marry_accept(callback: CallbackQuery, db: Database, bot: Bot):
+    proposer_id = int(callback.data.split("_")[2])
+    target_id = callback.from_user.id
+    
+    if await db.get_marriage(target_id) or await db.get_marriage(proposer_id):
+        await callback.message.edit_text("Кто-то из вас уже состоит в браке!")
+        return
+        
+    if not await db.deduct_coins(proposer_id, 5000):
+        await callback.message.edit_text("У инициатора больше нет 5000 🪙 на кольца! Свадьба отменяется.")
+        try: await bot.send_message(proposer_id, f"💔 {target_id} согласился на брак, но у вас не хватило коинов!")
+        except: pass
+        return
+        
+    await db.add_marriage(proposer_id, target_id)
+    await callback.message.edit_text(f"🎉 Вы успешно вступили в брак с {proposer_id}!")
+    try:
+        await bot.send_message(proposer_id, f"🎉 Пользователь {target_id} согласился на брак! -5000 🪙 за кольца. Поздравляем!")
+    except: pass
+
+@router.callback_query(F.data.startswith("marry_decline_"))
+async def cb_marry_decline(callback: CallbackQuery, bot: Bot):
+    proposer_id = int(callback.data.split("_")[2])
+    await callback.message.edit_text("Вы отказались от предложения.")
+    try:
+        await bot.send_message(proposer_id, f"💔 Пользователь {callback.from_user.id} отказался от вашего предложения руки и сердца.")
+    except: pass
 
 @router.callback_query(MarryStates.waiting_for_partner, F.data == "pay_cancel")
 async def marry_cancel(callback: CallbackQuery, state: FSMContext):
@@ -573,24 +644,34 @@ async def marry_cancel(callback: CallbackQuery, state: FSMContext):
 
 # --- Репутация ---
 @router.callback_query(F.data == "eco_rep")
-async def cb_eco_rep(callback: CallbackQuery, db: Database):
-    # Check if user already gave rep today
+async def cb_eco_rep(callback: CallbackQuery, db: Database, state: FSMContext):
     reps_today = await db._conn.execute('SELECT COUNT(*) FROM transactions WHERE sender_id = ? AND action_type = "give_rep" AND timestamp > ?', (callback.from_user.id, time.time() - 86400))
     count = (await reps_today.fetchone())[0]
-    
     if count > 0:
         await callback.answer("Вы уже повышали репутацию сегодня! Возвращайтесь завтра.", show_alert=True)
         return
         
-    # To keep it simple, we just give +10 XP to a random active user (or you can use states to select)
-    # Let's use states if needed, but a quick way is just a daily +Rep random user reward
     users = await db.get_all_users()
     users = [u for u in users if u.id != callback.from_user.id]
     if not users:
         await callback.answer("Нет пользователей для повышения репутации.", show_alert=True)
         return
         
-    target = random.choice(users)
+    await state.set_state(RepStates.waiting_for_target)
+    await callback.message.edit_text("🎯 **Кому выдать +Rep?**\n(Дает +50 XP выбранному игроку)", reply_markup=get_pay_users_kb(users, 0))
+
+@router.callback_query(RepStates.waiting_for_target, F.data.startswith("pay_page_"))
+async def rep_paginate(callback: CallbackQuery, db: Database):
+    page = int(callback.data.split("_")[2])
+    users = await db.get_all_users()
+    users = [u for u in users if u.id != callback.from_user.id]
+    await callback.message.edit_reply_markup(reply_markup=get_pay_users_kb(users, page))
+    await callback.answer()
+
+@router.callback_query(RepStates.waiting_for_target, F.data.startswith("pay_select_"))
+async def rep_select(callback: CallbackQuery, db: Database, state: FSMContext, bot: Bot):
+    target_id = int(callback.data.split("_")[2])
+    target = await db.get_user(target_id)
     target.xp += 50
     await db.update_user(target)
     await db.add_transaction(callback.from_user.id, target.id, 0, "give_rep")
@@ -598,6 +679,15 @@ async def cb_eco_rep(callback: CallbackQuery, db: Database):
     from utils.quests import increment_quest_progress
     await increment_quest_progress(callback.from_user.id, "give_rep", 1, db)
     
-    await callback.answer(f"Вы успешно дали +Rep случайному пользователю {target.id}! Ему начислено +50 XP.", show_alert=True)
+    await state.clear()
+    await callback.message.edit_text(f"🌟 Вы успешно дали +Rep пользователю {target_id}! Ему начислено +50 XP.")
+    try: await bot.send_message(target_id, f"🌟 Пользователь {callback.from_user.id} выдал вам +Rep! Вы получили +50 XP.")
+    except: pass
+
+@router.callback_query(RepStates.waiting_for_target, F.data == "pay_cancel")
+async def rep_cancel(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.edit_text("Добро пожаловать в раздел Игр и Экономики! Выберите действие:", reply_markup=get_economy_menu())
+    await callback.answer()
 
 
