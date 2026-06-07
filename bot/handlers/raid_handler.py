@@ -21,7 +21,15 @@ async def cb_eco_raid(callback: CallbackQuery, db: Database):
         boss = await cursor.fetchone()
         
     if not boss:
-        # Spawn a new boss if none exists!
+        # Check if we already spawned a boss recently
+        async with db._conn.execute('SELECT id FROM active_raids WHERE end_time > ? ORDER BY id DESC LIMIT 1', (time.time() - 86400,)) as cursor:
+            recent_boss = await cursor.fetchone()
+            
+        if recent_boss:
+            await callback.message.edit_text("⏳ Босс повержен! Новый босс появится позже.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="menu_games")]]))
+            return
+            
+        # Spawn a new boss if none exists and no recent boss!
         bosses = [("Злой Учитель Математики", 10000), ("Хулиган из старших классов", 15000), ("Гигантский Слизь", 25000)]
         name, max_hp = random.choice(bosses)
         end_time = time.time() + 86400 # 24 hours
@@ -51,11 +59,22 @@ async def cb_eco_raid(callback: CallbackQuery, db: Database):
             
     await callback.message.edit_text(text, reply_markup=get_raid_kb(boss_id))
     
+raid_cooldowns = {}
+
 @router.callback_query(F.data.startswith("raid_attack_"))
 async def cb_raid_attack(callback: CallbackQuery, db: Database):
     boss_id = int(callback.data.split("_")[-1])
     
-    # Check cooldown
+    # In-memory cooldown check to prevent race conditions
+    user_id = callback.from_user.id
+    now = time.time()
+    if user_id in raid_cooldowns and now - raid_cooldowns[user_id] < 10:
+        await callback.answer("⏳ Вы восстанавливаете выносливость! Ждите 10 секунд.", show_alert=True)
+        return
+    raid_cooldowns[user_id] = now
+    
+    # Check cooldown in db just in case
+
     # (Using transactions table as a quick cooldown tracker for raid)
     async with db._conn.execute('SELECT timestamp FROM transactions WHERE sender_id = ? AND action_type = ? ORDER BY timestamp DESC LIMIT 1', (callback.from_user.id, f"raid_attack_{boss_id}")) as cursor:
         last_attack = await cursor.fetchone()
@@ -98,14 +117,31 @@ async def cb_raid_attack(callback: CallbackQuery, db: Database):
     await db._conn.commit()
     
     if new_hp <= 0:
-        # Boss dead, reward!
-        user = await db.get_user(callback.from_user.id)
-        user.coins += 5000
-        user.xp += 1000
-        await db.update_user(user)
+        # Boss dead, reward proportionally to all who attacked!
+        async with db._conn.execute('SELECT sender_id, SUM(amount) FROM transactions WHERE action_type = ? GROUP BY sender_id', (f"raid_attack_{boss_id}",)) as cursor:
+            attackers = await cursor.fetchall()
+            
+        reward_pool = 50000 # 50k total coins pool
+        xp_pool = 10000
         
-        await callback.message.edit_text(f"🎉 **ПОБЕДА!** 🎉\n\nВы нанесли последний удар ({damage} урона) и повергли босса **{name}**!\n\nВы получаете:\n💰 5000 🪙\n✨ 1000 XP", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="menu_games")]]))
+        for atk_id, total_dmg in attackers:
+            dmg_percent = total_dmg / max_hp
+            u_coins = int(reward_pool * dmg_percent)
+            u_xp = int(xp_pool * dmg_percent)
+            
+            u = await db.get_user(atk_id)
+            if u:
+                u.coins += u_coins
+                u.xp += u_xp
+                await db.update_user(u)
+                
+        await callback.message.edit_text(f"🎉 **ПОБЕДА!** 🎉\n\nВы нанесли последний удар боссу **{name}**!\nНаграды были распределены между всеми участниками пропорционально их урону.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="menu_games")]]))
         await callback.answer()
     else:
-        await callback.answer(f"💥 Вы нанесли {damage} урона боссу!", show_alert=True)
+        # Mini reward for every hit
+        user = await db.get_user(callback.from_user.id)
+        user.coins += 10
+        await db.update_user(user)
+        
+        await callback.answer(f"💥 Вы нанесли {damage} урона боссу! (+10 🪙)", show_alert=True)
         await cb_eco_raid(callback, db) # Refresh UI

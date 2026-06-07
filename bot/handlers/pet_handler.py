@@ -87,11 +87,15 @@ async def cb_pet_interact(callback: CallbackQuery, db: Database):
         
     p_id, u_id, p_type, p_name, hunger, happiness, last_interact = pet
     
-    if time.time() - last_interact < 60:
+    action_type = callback.data
+    async with db._conn.execute('SELECT timestamp FROM transactions WHERE sender_id = ? AND action_type = ? ORDER BY timestamp DESC LIMIT 1', (callback.from_user.id, action_type)) as cursor:
+        last_action = await cursor.fetchone()
+        
+    if last_action and time.time() - last_action[0] < 60:
         await callback.answer("Питомец пока не хочет этого! Подождите минуту.", show_alert=True)
         return
         
-    if callback.data == "pet_feed":
+    if action_type == "pet_feed":
         hunger = min(100, hunger + 20)
         msg = f"Вы покормили {p_name}! Сытость +20"
     else:
@@ -99,5 +103,6 @@ async def cb_pet_interact(callback: CallbackQuery, db: Database):
         msg = f"Вы поиграли с {p_name}! Счастье +20"
         
     await db.update_user_pet(p_id, hunger, happiness, time.time())
+    await db.add_transaction(callback.from_user.id, 0, 0, action_type)
     await callback.answer(msg, show_alert=True)
     await cb_menu_pet(callback, db)
