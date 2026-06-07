@@ -110,9 +110,8 @@ async def cb_eco_contracts(callback: CallbackQuery, db: Database):
     if all_completed:
         text += "\n🎉 Вы выполнили все задания на сегодня!"
         
-    kb.append([InlineKeyboardButton(text="⬅️ Назад в Заработок", callback_data="cat_income")])
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
+    kb.append([InlineKeyboardButton(text="« Назад в Заработок", callback_data="cat_income")])
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
 
 @router.callback_query(F.data.startswith("claim_contract_"))
 async def cb_claim_contract(callback: CallbackQuery, db: Database):
