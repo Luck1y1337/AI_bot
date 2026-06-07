@@ -11,15 +11,17 @@ def get_clan_menu_kb(has_clan: bool) -> InlineKeyboardMarkup:
     if not has_clan:
         kb.append([InlineKeyboardButton(text="⚔️ Создать Клан (10,000 🪙)", callback_data="clan_create")])
         kb.append([InlineKeyboardButton(text="🏆 Топ Кланов", callback_data="clan_top")])
+        kb.append([InlineKeyboardButton(text="🚪 Вступить в Клан", callback_data="clan_join")])
     else:
         kb.append([InlineKeyboardButton(text="👤 Мой Клан", callback_data="clan_my")])
+        kb.append([InlineKeyboardButton(text="👥 Участники", callback_data="clan_members")])
         kb.append([InlineKeyboardButton(text="💰 В Казну", callback_data="clan_donate"),
                    InlineKeyboardButton(text="🏗️ Улучшить Базу", callback_data="clan_upgrade")])
         kb.append([InlineKeyboardButton(text="⚔️ Клановые Войны", callback_data="clan_wars_menu")])
         kb.append([InlineKeyboardButton(text="🏆 Топ Кланов", callback_data="clan_top"),
                    InlineKeyboardButton(text="🚪 Покинуть", callback_data="clan_leave")])
     
-    kb.append([InlineKeyboardButton(text="⬅️ Назад в Меню", callback_data="back_to_menu")])
+    kb.append([InlineKeyboardButton(text="« Назад в Меню", callback_data="eco_clans")])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
 @router.callback_query(F.data == "eco_clans")
@@ -71,13 +73,13 @@ async def cb_clan_my(callback: CallbackQuery, db: Database):
     c_id, c_name, c_owner, c_level, c_xp, c_treasury, role = user_clan
     members = await db.get_clan_members(c_id)
     
-    text = f"🏰 **Клан: {c_name}**\n"
-    text += f"📊 Уровень: {c_level} (Опыт: {c_xp})\n"
-    text += f"💰 Казна: {c_treasury} 🪙\n"
-    text += f"👥 Участников: {len(members)}\n\n"
-    text += f"Ваша роль: {role}"
+    text = f"🏰 <b>Клан: {c_name}</b>\n"
+    text += f"📊 <b>Уровень:</b> {c_level} (Опыт: {c_xp})\n"
+    text += f"💰 <b>Казна:</b> {c_treasury} 🪙\n"
+    text += f"👥 <b>Участников:</b> {len(members)}\n\n"
+    text += f"<i>Ваша роль: {role}</i>"
     
-    await callback.message.edit_text(text, reply_markup=get_clan_menu_kb(True))
+    await callback.message.edit_text(text, reply_markup=get_clan_menu_kb(True), parse_mode="HTML")
 
 @router.callback_query(F.data == "clan_top")
 async def cb_clan_top(callback: CallbackQuery, db: Database):
@@ -88,12 +90,12 @@ async def cb_clan_top(callback: CallbackQuery, db: Database):
         await callback.answer("Еще нет созданных кланов.", show_alert=True)
         return
         
-    text = "🏆 **Топ 10 Кланов сервера**\n\n"
+    text = "🏆 <b>Топ 10 Кланов сервера</b>\n\n"
     for i, row in enumerate(rows, 1):
-        text += f"{i}. **{row[0]}** - Ур. {row[1]} (Опыт: {row[2]}) | 🪙 {row[3]}\n"
+        text += f"{i}. <b>{row[0]}</b> - Ур. {row[1]} (Опыт: {row[2]}) | 🪙 {row[3]}\n"
         
     user_clan = await db.get_user_clan(callback.from_user.id)
-    await callback.message.edit_text(text, reply_markup=get_clan_menu_kb(bool(user_clan)))
+    await callback.message.edit_text(text, reply_markup=get_clan_menu_kb(bool(user_clan)), parse_mode="HTML")
 
 @router.callback_query(F.data == "clan_donate")
 async def cb_clan_donate(callback: CallbackQuery, state: FSMContext, db: Database):
@@ -263,11 +265,20 @@ async def cb_clan_war_search(callback: CallbackQuery, db: Database):
 @router.callback_query(F.data.startswith("clan_war_attack_"))
 async def cb_clan_war_attack(callback: CallbackQuery, db: Database):
     war_id = int(callback.data.split("_")[-1])
-    
-    # Simple cooldown via memory or transaction (simulated with random chance for simplicity to avoid long locks)
     import random, time
-    damage = random.randint(5, 15)
     
+    # Check cooldown using transactions
+    async with db._conn.execute('SELECT timestamp FROM transactions WHERE sender_id = ? AND action_type = ? ORDER BY timestamp DESC LIMIT 1', (callback.from_user.id, 'clan_attack')) as cursor:
+        last_attack = await cursor.fetchone()
+        
+    if last_attack and time.time() - last_attack[0] < 3600:
+        mins_left = int((3600 - (time.time() - last_attack[0])) / 60)
+        await callback.answer(f"⏳ Ваша армия отдыхает! Ждите {mins_left} мин.", show_alert=True)
+        return
+        
+    await db.add_transaction(callback.from_user.id, 0, 0, 'clan_attack')
+    
+    damage = random.randint(5, 15)
     user_clan = await db.get_user_clan(callback.from_user.id)
     if not user_clan: return
     c_id = user_clan[0]
@@ -294,3 +305,105 @@ async def cb_clan_war_attack(callback: CallbackQuery, db: Database):
     
     await callback.answer(f"💥 Вы нанесли {damage} урона вражескому клану и заработали {damage*2} 🪙!", show_alert=True)
     await cb_clan_wars_menu(callback, db)
+
+@router.callback_query(F.data == "clan_join")
+async def cb_clan_join(callback: CallbackQuery, state: FSMContext, db: Database):
+    user_clan = await db.get_user_clan(callback.from_user.id)
+    if user_clan:
+        await callback.answer("Вы уже состоите в клане!", show_alert=True)
+        return
+    await state.set_state(ClanStates.waiting_for_join_name)
+    await callback.message.answer("Введите точное название клана, в который хотите вступить:", parse_mode="HTML")
+    await callback.answer()
+
+@router.message(ClanStates.waiting_for_join_name)
+async def process_clan_join(message: Message, state: FSMContext, db: Database):
+    name = message.text.strip()
+    clan = await db.get_clan_by_name(name)
+    if not clan:
+        await message.answer("Клан с таким названием не найден. Попробуйте еще раз или напишите /cancel.")
+        return
+        
+    c_id = clan[0]
+    members = await db.get_clan_members(c_id)
+    
+    # Check limit (e.g., 20 max members per clan base level)
+    async with db._conn.execute('SELECT base_level FROM clans WHERE id = ?', (c_id,)) as cursor:
+        row = await cursor.fetchone()
+        b_lvl = row[0] if row else 1
+    max_members = 10 + (b_lvl * 5)
+    
+    if len(members) >= max_members:
+        await message.answer(f"В клане <b>{name}</b> нет мест! Максимум {max_members} участников.", parse_mode="HTML")
+        await state.clear()
+        return
+        
+    await db.add_clan_member(c_id, message.from_user.id, role='member')
+    await message.answer(f"🎉 Вы успешно вступили в клан <b>{name}</b>!", parse_mode="HTML")
+    await state.clear()
+
+@router.callback_query(F.data == "clan_members")
+async def cb_clan_members(callback: CallbackQuery, db: Database):
+    user_clan = await db.get_user_clan(callback.from_user.id)
+    if not user_clan: return
+    
+    c_id, c_name, c_owner, c_level, c_xp, c_treasury, role = user_clan
+    members = await db.get_clan_members(c_id)
+    
+    text = f"👥 <b>Участники клана {c_name}</b>\n\n"
+    for m_id, m_role, joined_at in members:
+        import time
+        days = int((time.time() - joined_at) / 86400)
+        role_emoji = "👑" if m_role == 'owner' else "👤"
+        text += f"{role_emoji} ID: <code>{m_id}</code> | В клане: {days} дн.\n"
+        
+    kb = []
+    if role == 'owner':
+        kb.append([InlineKeyboardButton(text="🚷 Выгнать участника", callback_data="clan_kick_menu")])
+    kb.append([InlineKeyboardButton(text="« Назад", callback_data="clan_my")])
+    
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb), parse_mode="HTML")
+
+@router.callback_query(F.data == "clan_kick_menu")
+async def cb_clan_kick_menu(callback: CallbackQuery, state: FSMContext, db: Database):
+    user_clan = await db.get_user_clan(callback.from_user.id)
+    if not user_clan or user_clan[6] != 'owner': return
+    
+    await state.set_state(ClanStates.waiting_for_kick_user)
+    await callback.message.answer("Введите ID участника, которого хотите выгнать из клана:")
+    await callback.answer()
+
+@router.message(ClanStates.waiting_for_kick_user)
+async def process_clan_kick(message: Message, state: FSMContext, db: Database):
+    try:
+        target_id = int(message.text.strip())
+    except ValueError:
+        await message.answer("Некорректный ID. Отмена.")
+        await state.clear()
+        return
+        
+    user_clan = await db.get_user_clan(message.from_user.id)
+    if not user_clan or user_clan[6] != 'owner':
+        await state.clear()
+        return
+        
+    c_id = user_clan[0]
+    
+    if target_id == message.from_user.id:
+        await message.answer("Вы не можете выгнать самого себя!")
+        await state.clear()
+        return
+        
+    # Check if target in clan
+    target_clan = await db.get_user_clan(target_id)
+    if not target_clan or target_clan[0] != c_id:
+        await message.answer("Этот игрок не состоит в вашем клане.")
+        await state.clear()
+        return
+        
+    await db.remove_clan_member(c_id, target_id)
+    await message.answer(f"✅ Участник {target_id} выгнан из клана.")
+    try:
+        await message.bot.send_message(target_id, f"Вы были исключены из клана <b>{user_clan[1]}</b>.", parse_mode="HTML")
+    except: pass
+    await state.clear()

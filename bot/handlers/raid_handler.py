@@ -47,17 +47,16 @@ async def cb_eco_raid(callback: CallbackQuery, db: Database):
         await callback.message.edit_text("⏳ Время рейда истекло! Босс сбежал.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="menu_games")]]))
         return
         
-    hp_bar_len = 20
-    fill = int((hp / max_hp) * hp_bar_len)
-    bar = "🟩" * fill + "⬛" * (hp_bar_len - fill)
+    from utils.formatting import generate_progress_bar
+    bar = generate_progress_bar(hp, max_hp, length=15)
     
-    text = (f"👹 **ГЛОБАЛЬНЫЙ БОСС** 👹\n\n"
-            f"Имя: {name}\n"
-            f"HP: {hp}/{max_hp}\n"
-            f"[{bar}]\n\n"
-            f"Атакуйте босса вместе с другими игроками! За добивание и участие вы получите огромную награду!")
+    text = (f"👹 <b>ГЛОБАЛЬНЫЙ БОСС</b> 👹\n\n"
+            f"<b>Имя:</b> {name}\n"
+            f"<b>HP:</b> {hp}/{max_hp}\n"
+            f"└ {bar}\n\n"
+            f"<i>Атакуйте босса вместе с другими игроками! За добивание и участие вы получите огромную награду!</i>")
             
-    await callback.message.edit_text(text, reply_markup=get_raid_kb(boss_id))
+    await callback.message.edit_text(text, reply_markup=get_raid_kb(boss_id), parse_mode="HTML")
     
 raid_cooldowns = {}
 

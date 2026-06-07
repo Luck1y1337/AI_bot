@@ -47,6 +47,8 @@ class PromoStates(StatesGroup):
 class ClanStates(StatesGroup):
     waiting_for_clan_name = State()
     waiting_for_donate = State()
+    waiting_for_join_name = State()
+    waiting_for_kick_user = State()
 
 class BlackjackStates(StatesGroup):
     waiting_for_bet = State()
