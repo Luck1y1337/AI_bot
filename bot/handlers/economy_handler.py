@@ -81,12 +81,12 @@ async def cb_eco_contracts(callback: CallbackQuery, db: Database):
             await db.add_contract(callback.from_user.id, qt, target, time.time())
         contracts = await db.get_user_contracts(callback.from_user.id, start_of_day)
         
-    text = "🎯 **Ваши ежедневные задания**\n\nВыполняйте задания, чтобы получать коины и XP!\n\n"
+    from utils.formatting import generate_progress_bar
+    text = "🎯 <b>Ваши ежедневные задания</b>\n\nВыполняйте задания, чтобы получать коины и XP!\n\n"
     
     kb = []
     all_completed = True
     for c_id, t_type, progress, target, is_completed, dt in contracts:
-        status = "✅" if is_completed else f"[{progress}/{target}]"
         if not is_completed: all_completed = False
         
         desc = {
@@ -97,7 +97,12 @@ async def cb_eco_contracts(callback: CallbackQuery, db: Database):
             "buy_shop": "Покупки в магазине"
         }.get(t_type, t_type)
         
-        text += f"{status} {desc}\n"
+        if is_completed:
+            text += f"✅ <b>{desc}</b>\n└ Выполнено!\n\n"
+        else:
+            bar = generate_progress_bar(progress, target, length=10)
+            text += f"🔄 <b>{desc}</b>\n└ {bar} {progress}/{target}\n\n"
+
         
         if progress >= target and not is_completed:
             kb.append([InlineKeyboardButton(text=f"🎁 Забрать награду: {desc}", callback_data=f"claim_contract_{c_id}")])

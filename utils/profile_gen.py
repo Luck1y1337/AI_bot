@@ -9,11 +9,29 @@ def create_rounded_mask(size, radius):
     draw.rounded_rectangle((0, 0) + size, radius, fill=255)
     return mask
 
+def draw_text_with_shadow(draw, position, text, font, fill, shadow_color=(0, 0, 0, 180)):
+    x, y = position
+    # Draw shadow
+    draw.text((x + 2, y + 2), text, font=font, fill=shadow_color)
+    # Draw text
+    draw.text((x, y), text, font=font, fill=fill)
+
+def get_gradient_image(size, start_color, end_color):
+    base = Image.new('RGBA', size, start_color)
+    top = Image.new('RGBA', size, end_color)
+    mask = Image.new('L', size)
+    # Actually we want horizontal gradient for XP bar
+    mask_data_horiz = []
+    for y in range(size[1]):
+        for x in range(size[0]):
+            mask_data_horiz.append(int(255 * (x / size[0])))
+    mask.putdata(mask_data_horiz)
+    base.paste(top, (0, 0), mask)
+    return base
+
 async def generate_profile_image(user: User, avatar_bytes: bytes = None) -> io.BytesIO:
-    # Set sizes
     bg_width, bg_height = 800, 450
     
-    # 1. Load Background
     bg_path = "media/profile_bg/default.png"
     if os.path.exists(bg_path):
         base = Image.open(bg_path).convert("RGBA").resize((bg_width, bg_height))

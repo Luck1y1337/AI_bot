@@ -58,17 +58,20 @@ async def show_pet_ui(message: Message, user_id: int, db: Database):
     if hunger < 30 or happiness < 30:
         status_text = "Грустит 😢 (Нужен уход!)"
         
-    text = (f"🐾 **Ваш Питомец** {emoji}\n\n"
-            f"Имя: {p_name}\n"
-            f"Сытость: {hunger}/100 🍖\n"
-            f"Счастье: {happiness}/100 🎾\n\n"
-            f"Статус: {status_text}\n"
-            f"*(RPG рейды и битвы с боссами в разработке!)*")
-            
-    if message.from_user.id == message.bot.id:
-        await message.edit_text(text, reply_markup=get_pet_kb())
+    from utils.formatting import generate_progress_bar
+    hunger_bar = generate_progress_bar(hunger, 100, length=10)
+    happiness_bar = generate_progress_bar(happiness, 100, length=10)
+        
+    text = f"🐾 <b>Ваш питомец {emoji} {p_name}</b>\n\n"
+    text += f"🍗 <b>Сытость:</b> {hunger_bar} {hunger}/100\n"
+    text += f"🎾 <b>Счастье:</b> {happiness_bar} {happiness}/100\n"
+    text += f"💭 <b>Статус:</b> {status_text}\n\n"
+    text += "<i>Не забывайте навещать питомца!</i>"
+    
+    if isinstance(message, Message) and message.from_user.id != message.bot.id:
+        await message.answer(text, reply_markup=get_pet_kb(), parse_mode="HTML")
     else:
-        await message.answer(text, reply_markup=get_pet_kb())
+        await message.edit_text(text, reply_markup=get_pet_kb(), parse_mode="HTML")
 
 @router.callback_query(F.data.startswith("pet_adopt_"))
 async def cb_pet_adopt(callback: CallbackQuery, db: Database):
