@@ -1,7 +1,7 @@
 from aiogram import Router, F, Bot
 from aiogram.types import Message, FSInputFile, BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from aiogram.filters import CommandStart
 from database.repository import Database
+from aiogram.filters import CommandStart, StateFilter
 from ai.mistral_client import MistralClient
 from ai.prompt_builder import build_system_prompt
 from memory.memory_manager import MemoryManager
@@ -25,8 +25,14 @@ from utils.profile_gen import generate_profile_image
 router = Router()
 old_trigger_system = TriggerSystem()
 
-@router.message(CommandStart())
-async def cmd_start(message: Message, db: Database, bot: Bot):
+@router.message(F.text.lower().in_(["отмена", "/cancel", "🔙 назад", "назад"]), ~StateFilter(None))
+async def cmd_cancel(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer("❌ Действие отменено.", reply_markup=get_main_menu(message.from_user.id))
+
+@router.message(CommandStart(), StateFilter("*"))
+async def cmd_start(message: Message, db: Database, bot: Bot, state: FSMContext):
+    await state.clear()
     user = await db.get_user(message.from_user.id)
     if user.username != (message.from_user.username or ""):
         user.username = message.from_user.username or ""

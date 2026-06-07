@@ -22,6 +22,8 @@ async def login(data: LoginData):
     if data.token == settings.ADMIN_PANEL_TOKEN:
         encoded = jwt.encode({"sub": "admin"}, settings.ADMIN_PANEL_TOKEN, algorithm="HS256")
         return {"access_token": encoded}
+    import asyncio
+    await asyncio.sleep(1) # Anti-bruteforce delay
     raise HTTPException(status_code=401, detail="Invalid token")
 
 def verify_token(authorization: str = Header(None)):

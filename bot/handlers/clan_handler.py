@@ -119,21 +119,19 @@ async def process_clan_donate(message: Message, state: FSMContext, db: Database)
         await message.answer("Пожалуйста, введите корректное положительное число.")
         return
         
-    user = await db.get_user(message.from_user.id)
-    if user.coins < amount:
-        await message.answer(f"Недостаточно коинов. Ваш баланс: {user.coins} 🪙")
-        await state.clear()
-        return
-        
-    user_clan = await db.get_user_clan(user.id)
+    user_clan = await db.get_user_clan(message.from_user.id)
     if not user_clan:
         await message.answer("Вы уже не состоите в клане.")
         await state.clear()
         return
         
+    success = await db.deduct_coins(message.from_user.id, amount)
+    if not success:
+        await message.answer(f"Недостаточно коинов.")
+        await state.clear()
+        return
+        
     c_id = user_clan[0]
-    user.coins -= amount
-    await db.update_user(user)
     await db.update_clan_treasury(c_id, amount)
     # Give some XP to the clan
     await db._conn.execute('UPDATE clans SET xp = xp + ? WHERE id = ?', (amount // 10, c_id))

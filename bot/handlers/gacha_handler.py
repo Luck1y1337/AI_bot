@@ -37,17 +37,15 @@ async def cb_gacha_roll(callback: CallbackQuery, db: Database):
     user = await db.get_user(callback.from_user.id)
     cost = 500
     
-    if user.coins < cost:
-        await callback.answer(f"Недостаточно коинов. Нужно {cost} 🪙", show_alert=True)
-        return
-        
     cards = await db.get_all_cards()
     if not cards:
         await callback.answer("В автомате пока нет карточек! Админы еще не завезли.", show_alert=True)
         return
         
-    user.coins -= cost
-    await db.update_user(user)
+    success = await db.deduct_coins(callback.from_user.id, cost)
+    if not success:
+        await callback.answer(f"Недостаточно коинов. Нужно {cost} 🪙", show_alert=True)
+        return
     
     # Rarity weights: Common 70%, Rare 20%, Epic 9%, Legendary 1%
     rarities = {"Common": 0, "Rare": 0, "Epic": 0, "Legendary": 0}

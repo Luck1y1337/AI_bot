@@ -210,18 +210,14 @@ async def process_pay_amount(message: Message, db: Database, state: FSMContext, 
         await state.clear()
         return
     
-    sender = await db.get_user(message.from_user.id)
-    if sender.coins < amount:
-        await message.answer(f"Недостаточно средств! У вас {sender.coins} 🪙.")
+    success = await db.deduct_coins(message.from_user.id, amount)
+    if not success:
+        await message.answer("Недостаточно средств!")
         await state.clear()
         return
         
-    target = await db.get_user(target_id)
-    sender.coins -= amount
-    target.coins += amount
-    await db.update_user(sender)
-    await db.update_user(target)
-    await db.add_transaction(sender.id, target.id, amount, "user_transfer")
+    await db.add_coins(target_id, amount)
+    await db.add_transaction(message.from_user.id, target_id, amount, "user_transfer")
     
     await message.answer(f"Успешно переведено {amount} 🪙 пользователю {target_id}!")
     try:
@@ -461,42 +457,36 @@ async def process_casino_bet(message: Message, db: Database, state: FSMContext, 
     data = await state.get_data()
     target_id = data.get("casino_target_id")
     
-    sender = await db.get_user(message.from_user.id)
-    if sender.coins < amount:
-        await message.answer(f"Недостаточно средств! У вас {sender.coins} 🪙.")
+    success_sender = await db.deduct_coins(message.from_user.id, amount)
+    if not success_sender:
+        await message.answer(f"Недостаточно средств!")
         await state.clear()
         return
         
-    target = await db.get_user(target_id)
-    if target.coins < amount:
+    success_target = await db.deduct_coins(target_id, amount)
+    if not success_target:
+        await db.add_coins(message.from_user.id, amount) # refund sender
         await message.answer(f"У соперника недостаточно средств для ставки {amount} 🪙.")
         await state.clear()
         return
-        
-    # Play
-    sender.coins -= amount
-    target.coins -= amount
     
     from utils.quests import increment_quest_progress
-    await increment_quest_progress(sender.id, "play_casino", 1, db)
-    await increment_quest_progress(target.id, "play_casino", 1, db)
+    await increment_quest_progress(message.from_user.id, "play_casino", 1, db)
+    await increment_quest_progress(target_id, "play_casino", 1, db)
     
     roll = random.choice([True, False]) # True = Sender wins
     win_amount = amount * 2
     
     if roll:
-        sender.coins += win_amount
-        winner_id, loser_id = sender.id, target.id
+        await db.add_coins(message.from_user.id, win_amount)
+        winner_id, loser_id = message.from_user.id, target_id
         result_text = f"🎉 Поздравляем! Вы выиграли Coinflip против {target_id} и забрали {win_amount} 🪙!"
-        target_text = f"💔 Вы проиграли {amount} 🪙 в Coinflip против {sender.id}."
+        target_text = f"💔 Вы проиграли {amount} 🪙 в Coinflip против {message.from_user.id}."
     else:
-        target.coins += win_amount
-        winner_id, loser_id = target.id, sender.id
+        await db.add_coins(target_id, win_amount)
+        winner_id, loser_id = target_id, message.from_user.id
         result_text = f"💔 Вы проиграли {amount} 🪙 в Coinflip против {target_id}."
-        target_text = f"🎉 Поздравляем! Пользователь {sender.id} бросил вам вызов в Coinflip и проиграл. Вы забрали {win_amount} 🪙!"
-        
-    await db.update_user(sender)
-    await db.update_user(target)
+        target_text = f"🎉 Поздравляем! Пользователь {message.from_user.id} бросил вам вызов в Coinflip и проиграл. Вы забрали {win_amount} 🪙!"
     await db.add_transaction(loser_id, winner_id, amount, "casino_coinflip")
     
     await message.answer(result_text)

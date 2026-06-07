@@ -117,9 +117,9 @@ async def process_bj_bet(message: Message, state: FSMContext, db: Database):
         await message.answer("Пожалуйста, введите корректную ставку (число > 0).")
         return
         
-    user = await db.get_user(message.from_user.id)
-    if user.coins < bet:
-        await message.answer(f"У вас недостаточно коинов! Ваш баланс: {user.coins} 🪙")
+    success = await db.deduct_coins(message.from_user.id, bet)
+    if not success:
+        await message.answer(f"У вас недостаточно коинов!")
         await state.clear()
         return
         
@@ -154,11 +154,10 @@ async def finish_bj(message_or_call, state: FSMContext, db: Database, base_text:
     user = await db.get_user(user_id)
     
     if reason == "blackjack":
-        winnings = int(bet * 1.5)
+        winnings = int(bet * 2.5) # Original bet + 1.5x profit
         user.coins += winnings
-        final_text = base_text + f"\n🎉 **Блэкджек! Вы выиграли {winnings} 🪙!**"
+        final_text = base_text + f"\n🎉 **Блэкджек! Вы выиграли {winnings - bet} 🪙!**"
     elif reason == "bust":
-        user.coins -= bet
         final_text = base_text + f"\n💥 **Перебор! Вы проиграли {bet} 🪙.**"
     else:
         # Dealer plays
@@ -171,12 +170,12 @@ async def finish_bj(message_or_call, state: FSMContext, db: Database, base_text:
         final_text += f"Рука дилера: {' '.join(d_hand)} (Сумма: {d_score})\n\n"
         
         if d_score > 21 or p_score > d_score:
-            user.coins += bet
+            user.coins += bet * 2
             final_text += f"🎉 **Вы выиграли {bet} 🪙!**"
         elif p_score < d_score:
-            user.coins -= bet
             final_text += f"💸 **Дилер выиграл. Вы проиграли {bet} 🪙.**"
         else:
+            user.coins += bet
             final_text += "🤝 **Ничья. Ставка возвращена.**"
             
     await db.update_user(user)
@@ -248,12 +247,10 @@ async def process_roulette_bet_internal(message: Message, amount_str: str, bet_t
         await message.answer("Некорректная сумма ставки.")
         return
         
-    user = await db.get_user(message.from_user.id)
-    if user.coins < bet:
-        await message.answer(f"Недостаточно коинов! Ваш баланс: {user.coins} 🪙")
+    success = await db.deduct_coins(message.from_user.id, bet)
+    if not success:
+        await message.answer(f"Недостаточно коинов!")
         return
-        
-    user.coins -= bet
     
     # Spin roulette
     result_num = random.randint(0, 36)
@@ -266,23 +263,23 @@ async def process_roulette_bet_internal(message: Message, amount_str: str, bet_t
         
     color_emoji = {"red": "🔴", "black": "⚫", "green": "🟢"}[result_color]
     text = f"🎡 Шарик остановился на: **{result_num} {color_emoji}**\n\n"
+    win = 0
     
     bet_type = bet_type.lower()
     if bet_type == result_color:
         win = bet * 2 if result_color != "green" else bet * 14
-        user.coins += win
         text += f"🎉 Вы угадали цвет! Выигрыш: {win} 🪙"
     elif bet_type.isdigit() and int(bet_type) == result_num:
         win = bet * 36
-        user.coins += win
         text += f"🎰 ДЖЕКПОТ! Вы угадали число! Выигрыш: {win} 🪙"
     else:
         text += f"💸 Ставка не сыграла. Вы потеряли {bet} 🪙."
         
-    await db.update_user(user)
+    if win > 0:
+        await db.add_coins(message.from_user.id, win)
     
     from utils.quests import increment_quest_progress
-    await increment_quest_progress(user.id, "play_casino", 1, db)
+    await increment_quest_progress(message.from_user.id, "play_casino", 1, db)
     
     await message.answer(text)
 

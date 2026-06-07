@@ -179,6 +179,12 @@ class Database:
                 last_interact REAL,
                 FOREIGN KEY(user_id) REFERENCES users(id)
             );
+            
+            CREATE INDEX IF NOT EXISTS idx_user_cards_user_id ON user_cards(user_id);
+            CREATE INDEX IF NOT EXISTS idx_market_lots_seller_id ON market_lots(seller_id);
+            CREATE INDEX IF NOT EXISTS idx_inventory_user_id ON inventory(user_id);
+            CREATE INDEX IF NOT EXISTS idx_reminders_user_id ON reminders(user_id);
+            CREATE INDEX IF NOT EXISTS idx_clan_members_clan_id ON clan_members(clan_id);
         ''')
         
         # Schema migrations
@@ -258,6 +264,15 @@ class Database:
             await self._conn.execute('INSERT INTO users (id) VALUES (?)', (user_id,))
             await self._conn.commit()
             return User(user_id, 50, 'normal', 0, 0, 0, False, 0.0, "", None, False)
+
+    async def deduct_coins(self, user_id: int, amount: int) -> bool:
+        cursor = await self._conn.execute('UPDATE users SET coins = coins - ? WHERE id = ? AND coins >= ?', (amount, user_id, amount))
+        await self._conn.commit()
+        return cursor.rowcount > 0
+
+    async def add_coins(self, user_id: int, amount: int):
+        await self._conn.execute('UPDATE users SET coins = coins + ? WHERE id = ?', (amount, user_id))
+        await self._conn.commit()
 
     async def update_user(self, user: User):
         await self._conn.execute('''

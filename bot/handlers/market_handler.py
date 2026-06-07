@@ -88,26 +88,26 @@ async def cb_market_buy(callback: CallbackQuery, db: Database):
         await callback.answer("Вы не можете купить свой же лот!", show_alert=True)
         return
         
-    buyer = await db.get_user(callback.from_user.id)
-    if buyer.coins < price:
+    # Delete lot first to prevent double-buying
+    cursor = await db._conn.execute('DELETE FROM market_lots WHERE id = ?', (lot_id,))
+    if cursor.rowcount == 0:
+        await callback.answer("Этот лот уже был куплен!", show_alert=True)
+        return
+
+    # Deduct coins
+    success = await db.deduct_coins(callback.from_user.id, price)
+    if not success:
+        # Rollback by re-inserting lot if coins deduction failed
+        await db._conn.execute('INSERT INTO market_lots (id, seller_id, item_type, item_id, price) VALUES (?, ?, ?, ?, ?)', (lot_id, s_id, i_type, i_id, price))
+        await db._conn.commit()
         await callback.answer("Недостаточно средств для покупки!", show_alert=True)
         return
         
-    # Process transaction
-    buyer.coins -= price
-    await db.update_user(buyer)
-    
-    seller = await db.get_user(s_id)
-    seller.coins += price
-    await db.update_user(seller)
+    await db.add_coins(s_id, price)
     
     # Give item
     if i_type == "card":
-        await db.add_user_card(buyer.id, i_id)
-        
-    # Delete lot
-    await db._conn.execute('DELETE FROM market_lots WHERE id = ?', (lot_id,))
-    await db._conn.commit()
+        await db.add_user_card(callback.from_user.id, i_id)
     
     await callback.answer("Покупка успешно завершена!", show_alert=True)
     await cb_market(callback, db) # refresh UI
