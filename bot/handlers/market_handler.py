@@ -1,4 +1,4 @@
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, Message
 from database.repository import Database
 from aiogram.fsm.context import FSMContext
@@ -72,7 +72,7 @@ async def show_market(callback: CallbackQuery, db: Database, page: int):
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
 
 @router.callback_query(F.data.startswith("market_buy_"))
-async def cb_market_buy(callback: CallbackQuery, db: Database):
+async def cb_market_buy(callback: CallbackQuery, db: Database, bot: Bot):
     lot_id = int(callback.data.split("_")[-1])
     
     async with db._conn.execute('SELECT id, seller_id, item_type, item_id, price FROM market_lots WHERE id = ?', (lot_id,)) as cursor:
@@ -106,8 +106,16 @@ async def cb_market_buy(callback: CallbackQuery, db: Database):
     await db.add_coins(s_id, price)
     
     # Give item
+    item_name = "Неизвестный предмет"
     if i_type == "card":
         await db.add_user_card(callback.from_user.id, i_id)
+        async with db._conn.execute('SELECT name FROM cards WHERE id = ?', (i_id,)) as c:
+            row = await c.fetchone()
+            if row: item_name = f"Карточка: {row[0]}"
+            
+    try:
+        await bot.send_message(s_id, f"🎉 Ваш лот **{item_name}** был куплен на рынке!\nНа ваш счет зачислено {price} 🪙.")
+    except: pass
     
     await callback.answer("Покупка успешно завершена!", show_alert=True)
     await cb_market(callback, db) # refresh UI

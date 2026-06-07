@@ -30,7 +30,7 @@ def get_collection_kb(page: int, total_pages: int) -> InlineKeyboardMarkup:
 
 @router.callback_query(F.data == "gacha_menu")
 async def cb_gacha_menu(callback: CallbackQuery):
-    await callback.message.edit_text("🎰 **Гача-Автомат**\n\nЗдесь можно выбить уникальные карточки персонажей! Они дают бонусы к RPG статам.", reply_markup=get_gacha_kb())
+    await callback.message.edit_text("🎰 **Гача-Автомат**\n\nЗдесь можно выбить уникальные карточки персонажей!\n*(Бои карточек и RPG-режим находятся в активной разработке. Собирайте коллекцию, чтобы быть готовым!)*", reply_markup=get_gacha_kb())
 
 @router.callback_query(F.data == "gacha_roll")
 async def cb_gacha_roll(callback: CallbackQuery, db: Database):

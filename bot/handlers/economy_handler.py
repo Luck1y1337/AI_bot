@@ -26,6 +26,25 @@ def get_start_of_day() -> float:
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     return start.timestamp()
 
+@router.callback_query(F.data == "eco_daily")
+async def cb_eco_daily(callback: CallbackQuery, db: Database):
+    user = await db.get_user(callback.from_user.id)
+    now = time.time()
+    
+    if user.last_daily_time and (now - user.last_daily_time < 86400):
+        remaining = 86400 - (now - user.last_daily_time)
+        from utils.time_utils import format_time_remaining
+        await callback.answer(f"Вы уже получали бонус! Возвращайтесь через {format_time_remaining(now + remaining)}.", show_alert=True)
+        return
+        
+    reward = random.randint(300, 700)
+    user.last_daily_time = now
+    await db.update_user(user)
+    await db.add_coins(user.id, reward)
+    
+    await callback.message.edit_text(f"🎁 Вы получили ежедневный бонус: **{reward} 🪙**!", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад в Экономику", callback_data="back_to_economy")]]))
+    await callback.answer("Бонус получен!")
+
 @router.callback_query(F.data == "eco_contracts")
 async def cb_eco_contracts(callback: CallbackQuery, db: Database):
     user = await db.get_user(callback.from_user.id) # Ensure user exists to prevent FK violation

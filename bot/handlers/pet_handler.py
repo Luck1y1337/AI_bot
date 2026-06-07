@@ -63,7 +63,7 @@ async def show_pet_ui(message: Message, user_id: int, db: Database):
             f"Сытость: {hunger}/100 🍖\n"
             f"Счастье: {happiness}/100 🎾\n\n"
             f"Статус: {status_text}\n"
-            f"*(Питомцы дают пассивные баффы в RPG рейдах)*")
+            f"*(RPG рейды и битвы с боссами в разработке!)*")
             
     if message.from_user.id == message.bot.id:
         await message.edit_text(text, reply_markup=get_pet_kb())

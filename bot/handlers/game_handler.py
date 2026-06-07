@@ -1,7 +1,7 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from database.repository import Database
-from bot.keyboards.inline_kb import get_quiz_kb, get_blackjack_kb
+from bot.keyboards.inline_kb import get_quiz_kb, get_blackjack_kb, get_roulette_bet_kb, get_roulette_color_kb
 from bot.fsm.states import BlackjackStates, RouletteStates
 from aiogram.fsm.context import FSMContext
 import random
@@ -217,71 +217,54 @@ async def cb_bj_action(callback: CallbackQuery, state: FSMContext, db: Database)
 
 # --- Рулетка ---
 @router.message(F.text.lower() == "рулетка")
-async def cmd_roulette(message: Message, state: FSMContext):
-    await state.set_state(RouletteStates.waiting_for_bet)
-    await message.answer("🎡 **Рулетка**\nВведите вашу ставку в формате: `<сумма> <цвет/число>`\nНапример: `100 red`, `50 black`, `20 green` или `10 7`")
+async def cmd_roulette(message: Message):
+    await message.answer("🎡 **Рулетка**\nВыберите сумму ставки:", reply_markup=get_roulette_bet_kb())
 
-@router.message(F.text.lower().startswith("roulette") | F.text.lower().startswith("рулетка "))
-async def process_roulette_fast(message: Message, db: Database):
-    # For fast betting like "рулетка 100 red"
-    parts = message.text.split()
-    if len(parts) != 3:
-        await message.answer("Использование: рулетка <сумма> <цвет/число>")
-        return
-    await process_roulette_bet_internal(message, parts[1], parts[2], db)
+@router.callback_query(F.data.startswith("rl_bet_"))
+async def cb_rl_bet(callback: CallbackQuery):
+    bet = int(callback.data.split("_")[2])
+    await callback.message.edit_text(f"🎡 **Рулетка**\nСтавка: **{bet} 🪙**\nВыберите цвет:", reply_markup=get_roulette_color_kb(bet))
+    await callback.answer()
 
-@router.message(RouletteStates.waiting_for_bet)
-async def process_roulette_bet(message: Message, state: FSMContext, db: Database):
-    parts = message.text.split()
-    if len(parts) != 2:
-        await message.answer("Формат: <сумма> <цвет/число>. Например: 100 red")
-        return
-    await process_roulette_bet_internal(message, parts[0], parts[1], db)
-    await state.clear()
-
-async def process_roulette_bet_internal(message: Message, amount_str: str, bet_type: str, db: Database):
-    try:
-        bet = int(amount_str)
-        if bet <= 0: raise ValueError
-    except:
-        await message.answer("Некорректная сумма ставки.")
+@router.callback_query(F.data.startswith("rl_color_"))
+async def cb_rl_color(callback: CallbackQuery, db: Database):
+    parts = callback.data.split("_")
+    bet = int(parts[2])
+    bet_type = parts[3]
+    
+    success = await db.deduct_coins(callback.from_user.id, bet)
+    if not success:
+        await callback.answer("Недостаточно средств для ставки!", show_alert=True)
         return
         
-    success = await db.deduct_coins(message.from_user.id, bet)
-    if not success:
-        await message.answer(f"Недостаточно коинов!")
-        return
-    
-    # Spin roulette
-    result_num = random.randint(0, 36)
-    if result_num == 0:
+    await _process_roulette_result(callback, bet, bet_type, db)
+
+async def _process_roulette_result(callback: CallbackQuery, bet: int, bet_type: str, db: Database):
+    roll = random.randint(0, 36)
+    if roll == 0:
         result_color = "green"
-    elif result_num in [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]:
+    elif roll in [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]:
         result_color = "red"
     else:
         result_color = "black"
         
     color_emoji = {"red": "🔴", "black": "⚫", "green": "🟢"}[result_color]
-    text = f"🎡 Шарик остановился на: **{result_num} {color_emoji}**\n\n"
+    text = f"🎡 Шарик остановился на: **{roll} {color_emoji}**\n\n"
     win = 0
     
-    bet_type = bet_type.lower()
     if bet_type == result_color:
         win = bet * 2 if result_color != "green" else bet * 14
         text += f"🎉 Вы угадали цвет! Выигрыш: {win} 🪙"
-    elif bet_type.isdigit() and int(bet_type) == result_num:
-        win = bet * 36
-        text += f"🎰 ДЖЕКПОТ! Вы угадали число! Выигрыш: {win} 🪙"
     else:
         text += f"💸 Ставка не сыграла. Вы потеряли {bet} 🪙."
         
     if win > 0:
-        await db.add_coins(message.from_user.id, win)
+        await db.add_coins(callback.from_user.id, win)
     
     from utils.quests import increment_quest_progress
-    await increment_quest_progress(message.from_user.id, "play_casino", 1, db)
+    await increment_quest_progress(callback.from_user.id, "play_casino", 1, db)
     
-    await message.answer(text)
+    await callback.message.edit_text(text)
 
 # --- Камень Ножницы Бумага ---
 @router.message(F.text.lower().startswith("кнб ") | F.text.lower().startswith("rps "))
