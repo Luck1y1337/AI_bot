@@ -556,41 +556,71 @@ async def process_casino_bet(message: Message, db: Database, state: FSMContext, 
         await state.clear()
         return
         
+    await message.answer(f"⏳ Вызов отправлен пользователю {target_id}. Ожидаем его ответа...\n(Ваша ставка {amount} 🪙 временно заморожена)")
+    await state.clear()
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Принять вызов", callback_data=f"casino_accept_{message.from_user.id}_{amount}")],
+        [InlineKeyboardButton(text="❌ Отклонить", callback_data=f"casino_decline_{message.from_user.id}_{amount}")]
+    ])
+    try:
+        await bot.send_message(target_id, f"🎲 Пользователь {message.from_user.id} бросил вам вызов в Coinflip на {amount} 🪙!\nПринимаете вызов?", reply_markup=kb)
+    except:
+        await db.add_coins(message.from_user.id, amount) # refund
+        await message.answer(f"Не удалось отправить сообщение пользователю {target_id}. Ставка возвращена.")
+
+@router.callback_query(F.data.startswith("casino_accept_"))
+async def cb_casino_accept(callback: CallbackQuery, db: Database, bot: Bot):
+    parts = callback.data.split("_")
+    challenger_id = int(parts[2])
+    amount = int(parts[3])
+    target_id = callback.from_user.id
+    
     success_target = await db.deduct_coins(target_id, amount)
     if not success_target:
-        await db.add_coins(message.from_user.id, amount) # refund sender
-        await message.answer(f"У соперника недостаточно средств для ставки {amount} 🪙.")
-        await state.clear()
+        await callback.answer(f"У вас недостаточно средств для ставки {amount} 🪙!", show_alert=True)
         return
+        
+    await callback.message.edit_text(f"🎲 Вы приняли вызов от {challenger_id} на {amount} 🪙! Бросаем монетку...")
     
     from utils.quests import increment_quest_progress
-    await increment_quest_progress(message.from_user.id, "play_casino", 1, db)
+    await increment_quest_progress(challenger_id, "play_casino", 1, db)
     await increment_quest_progress(target_id, "play_casino", 1, db)
     
-    roll = random.choice([True, False]) # True = Sender wins
+    roll = random.choice([True, False]) # True = Challenger wins
     win_amount = amount * 2
     
     if roll:
-        await db.add_coins(message.from_user.id, win_amount)
-        winner_id, loser_id = message.from_user.id, target_id
-        result_text = f"🎉 Поздравляем! Вы выиграли Coinflip против {target_id} и забрали {win_amount} 🪙!"
-        target_text = f"💔 Вы проиграли {amount} 🪙 в Coinflip против {message.from_user.id}."
+        await db.add_coins(challenger_id, win_amount)
+        winner_id, loser_id = challenger_id, target_id
+        challenger_text = f"🎉 Поздравляем! Вы выиграли Coinflip против {target_id} и забрали {win_amount} 🪙!"
+        target_text = f"💔 Вы проиграли {amount} 🪙 в Coinflip против {challenger_id}."
     else:
         await db.add_coins(target_id, win_amount)
-        winner_id, loser_id = target_id, message.from_user.id
-        result_text = f"💔 Вы проиграли {amount} 🪙 в Coinflip против {target_id}."
-        target_text = f"🎉 Поздравляем! Пользователь {message.from_user.id} бросил вам вызов в Coinflip и проиграл. Вы забрали {win_amount} 🪙!"
+        winner_id, loser_id = target_id, challenger_id
+        target_text = f"🎉 Поздравляем! Вы выиграли Coinflip против {challenger_id} и забрали {win_amount} 🪙!"
+        challenger_text = f"💔 Вы проиграли {amount} 🪙 в Coinflip против {target_id}."
+        
     await db.add_transaction(loser_id, winner_id, amount, "casino_coinflip")
     
-    await message.answer("🪙 **Монетка подброшена...** Воздух напряжен...")
     await asyncio.sleep(2)
-    
-    await message.answer(result_text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад в Игры", callback_data="cat_games")]]))
+    await callback.message.answer(target_text)
     try:
-        await bot.send_message(target_id, target_text)
+        await bot.send_message(challenger_id, challenger_text)
     except: pass
+
+@router.callback_query(F.data.startswith("casino_decline_"))
+async def cb_casino_decline(callback: CallbackQuery, db: Database, bot: Bot):
+    parts = callback.data.split("_")
+    challenger_id = int(parts[2])
+    amount = int(parts[3])
     
-    await state.clear()
+    # Refund challenger
+    await db.add_coins(challenger_id, amount)
+    await callback.message.edit_text("❌ Вы отклонили вызов.")
+    try:
+        await bot.send_message(challenger_id, f"❌ Пользователь {callback.from_user.id} отклонил ваш вызов. Ставка {amount} 🪙 возвращена.")
+    except: pass
 
 # --- Брак ---
 @router.callback_query(F.data == "eco_marry")
