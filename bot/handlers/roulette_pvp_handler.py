@@ -178,10 +178,12 @@ async def cb_roul_shoot(callback: CallbackQuery, db: Database, bot: Bot):
     if len(lobby["players"]) == 1:
         winner = lobby["players"][0]
         bank = lobby["total_bank"]
-        await db.add_coins(winner, bank)
+        tax = int(bank * 0.05)
+        win_amount = bank - tax
+        await db.add_coins(winner, win_amount)
         
         lobby["status"] = "finished"
-        text = f"🏆 **ИГРА ОКОНЧЕНА!** Лобби #{lobby_id}\n\nПоследний выживший: {winner}\nОн забирает весь банк: {bank} 🪙!"
+        text = f"🏆 **ИГРА ОКОНЧЕНА!** Лобби #{lobby_id}\n\nПоследний выживший: {winner}\nОн забирает {win_amount} 🪙 (Налог: {tax} 🪙)!"
         active_lobbies = [k for k, v in ROULETTE_LOBBIES.items() if v["status"] == "waiting"]
         await callback.message.edit_text(text, reply_markup=get_roulette_main_kb(active_lobbies))
         # Clean up later or leave it to be overwritten

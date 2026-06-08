@@ -110,7 +110,15 @@ def get_eco_social_kb() -> InlineKeyboardMarkup:
          InlineKeyboardButton(text="🤝 Трейд (Предметы)", callback_data="eco_trade")],
         [InlineKeyboardButton(text="💸 Перевод Коинов", callback_data="eco_transfer"),
          InlineKeyboardButton(text="👍 +Репутация", callback_data="eco_rep")],
+        [InlineKeyboardButton(text="🎁 Подарить ИИ Подарок", callback_data="gift_main")],
         [InlineKeyboardButton(text="« Назад в Меню", callback_data="back_to_main_eco")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=kb)
+
+def get_stats_kb() -> InlineKeyboardMarkup:
+    kb = [
+        [InlineKeyboardButton(text="⏰ Мои Напоминания", callback_data="stats_reminders")],
+        [InlineKeyboardButton(text="🔄 Сброс памяти ИИ (Reset)", callback_data="stats_reset")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=kb)
 

@@ -27,7 +27,9 @@ class Database:
                 last_daily_time REAL DEFAULT 0,
                 username TEXT DEFAULT "",
                 custom_prompt TEXT DEFAULT "",
-                is_vip BOOLEAN DEFAULT 0
+                is_vip BOOLEAN DEFAULT 0,
+                profile_frame TEXT DEFAULT 'default',
+                tutorial_done BOOLEAN DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS reminders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -139,10 +141,16 @@ class Database:
             );
             CREATE TABLE IF NOT EXISTS user_rpg_stats (
                 user_id INTEGER PRIMARY KEY,
-                hp INTEGER DEFAULT 100,
+                health INTEGER DEFAULT 100,
+                max_health INTEGER DEFAULT 100,
                 attack INTEGER DEFAULT 10,
-                defense INTEGER DEFAULT 10,
+                defense INTEGER DEFAULT 5,
                 FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS crypto_market (
+                coin_name TEXT PRIMARY KEY,
+                current_price INTEGER DEFAULT 100,
+                last_updated REAL
             );
             CREATE TABLE IF NOT EXISTS active_raids (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -263,6 +271,16 @@ class Database:
             pass
             
         try:
+            await self._conn.execute('ALTER TABLE users ADD COLUMN profile_frame TEXT DEFAULT "default"')
+        except Exception:
+            pass
+            
+        try:
+            await self._conn.execute('ALTER TABLE users ADD COLUMN tutorial_done BOOLEAN DEFAULT 0')
+        except Exception:
+            pass
+            
+        try:
             await self._conn.execute('''
             CREATE TABLE IF NOT EXISTS crypto_market (
                 coin_name TEXT PRIMARY KEY,
@@ -316,14 +334,14 @@ class Database:
             await self._conn.close()
 
     async def get_user(self, user_id: int) -> User:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip, profile_frame FROM users WHERE id = ?', (user_id,)) as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip, profile_frame, tutorial_done FROM users WHERE id = ?', (user_id,)) as cursor:
             row = await cursor.fetchone()
             if row:
                 return User(*row)
             # Create user if not exists
             await self._conn.execute('INSERT INTO users (id) VALUES (?)', (user_id,))
             await self._conn.commit()
-            return User(user_id, 50, 'normal', 0, 0, 0, False, 0.0, "", None, False, "default")
+            return User(user_id, 50, 'normal', 0, 0, 0, False, 0.0, "", None, False, "default", False)
 
     async def deduct_coins(self, user_id: int, amount: int) -> bool:
         cursor = await self._conn.execute('UPDATE users SET coins = coins - ? WHERE id = ? AND coins >= ?', (amount, user_id, amount))
@@ -336,12 +354,12 @@ class Database:
 
     async def update_user(self, user: User):
         await self._conn.execute('''
-            UPDATE users SET trust = ?, mood = ?, message_count = ?, xp = ?, coins = ?, is_banned = ?, last_daily_time = ?, username = ?, custom_prompt = ?, is_vip = ?, profile_frame = ? WHERE id = ?
-        ''', (user.trust, user.mood, user.message_count, user.xp, user.coins, user.is_banned, user.last_daily_time, user.username, user.custom_prompt, user.is_vip, user.profile_frame, user.id))
+            UPDATE users SET trust = ?, mood = ?, message_count = ?, xp = ?, coins = ?, is_banned = ?, last_daily_time = ?, username = ?, custom_prompt = ?, is_vip = ?, profile_frame = ?, tutorial_done = ? WHERE id = ?
+        ''', (user.trust, user.mood, user.message_count, user.xp, user.coins, user.is_banned, user.last_daily_time, user.username, user.custom_prompt, user.is_vip, user.profile_frame, user.tutorial_done, user.id))
         await self._conn.commit()
         
     async def get_all_users(self) -> List[User]:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip, profile_frame FROM users') as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip, profile_frame, tutorial_done FROM users') as cursor:
             rows = await cursor.fetchall()
             return [User(*row) for row in rows]
             
@@ -661,6 +679,10 @@ class Database:
     # --- Profile Frame ---
     async def update_profile_frame(self, user_id: int, frame: str):
         await self._conn.execute('UPDATE users SET profile_frame = ? WHERE id = ?', (frame, user_id))
+        await self._conn.commit()
+
+    async def complete_tutorial(self, user_id: int):
+        await self._conn.execute('UPDATE users SET tutorial_done = 1 WHERE id = ?', (user_id,))
         await self._conn.commit()
         
     async def get_profile_frame(self, user_id: int) -> str:

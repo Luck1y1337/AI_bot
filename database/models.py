@@ -15,6 +15,7 @@ class User:
     custom_prompt: str = None
     is_vip: bool = False
     profile_frame: str = "default"
+    tutorial_done: bool = False
 
 @dataclass
 class Transaction:

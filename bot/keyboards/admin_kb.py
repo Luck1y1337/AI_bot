@@ -12,6 +12,8 @@ def get_admin_main_kb() -> InlineKeyboardMarkup:
          InlineKeyboardButton(text="📜 История транзакций", callback_data="admin_transactions")],
         [InlineKeyboardButton(text="🔐 Whitelist", callback_data="admin_whitelist_menu"),
          InlineKeyboardButton(text="🚫 Blacklist", callback_data="admin_blacklist_menu")],
+        [InlineKeyboardButton(text="🎁 Создать Промокод", callback_data="admin_promo_create"),
+         InlineKeyboardButton(text="🔨 Забанить / Разбанить", callback_data="admin_ban_menu")],
         [InlineKeyboardButton(text="🛒 Управление Рынком", callback_data="admin_market")],
         [InlineKeyboardButton(text="📢 Рассылка", callback_data="admin_broadcast"),
          InlineKeyboardButton(text="⚙️ Настройки", callback_data="admin_settings")]

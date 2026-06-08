@@ -18,6 +18,11 @@ GIFTS = {
 async def cmd_gift(message: Message):
     await message.answer("П-подарки? Мне? Эм... тебе не стоило...", reply_markup=get_gifts_kb())
 
+@router.callback_query(F.data == "gift_main")
+async def cb_gift_main(callback: CallbackQuery):
+    await callback.message.edit_text("П-подарки? Мне? Эм... тебе не стоило...", reply_markup=get_gifts_kb())
+    await callback.answer()
+
 @router.callback_query(F.data.startswith("gift_"))
 async def process_gift(callback: CallbackQuery, db: Database):
     user_id = callback.from_user.id

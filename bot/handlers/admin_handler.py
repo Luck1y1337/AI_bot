@@ -26,6 +26,87 @@ async def cmd_admin(message: Message):
         return
     await message.answer("Админ Панель", reply_markup=get_admin_main_kb())
 
+@router.callback_query(F.data == "admin_promo_create")
+async def cb_admin_promo_create(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id): return
+    await state.set_state(AdminStates.waiting_for_promo_data)
+    await callback.message.edit_text("Отправьте данные для промокода в формате:\n`<НАЗВАНИЕ> <КОИНЫ> <XP> <КОЛ-ВО ИСПОЛЬЗОВАНИЙ>`\n\nПример: `MAHIRO_GIFT 500 10 100`", parse_mode="Markdown")
+    await callback.answer()
+
+@router.message(AdminStates.waiting_for_promo_data)
+async def process_promo_data(message: Message, state: FSMContext, db: Database):
+    parts = message.text.split()
+    if len(parts) != 4:
+        await message.answer("❌ Неверный формат. Попробуйте еще раз: `НАЗВАНИЕ КОИНЫ XP ИСПОЛЬЗОВАНИЯ`")
+        return
+        
+    try:
+        code = parts[0]
+        coins = int(parts[1])
+        xp = int(parts[2])
+        uses = int(parts[3])
+    except ValueError:
+        await message.answer("❌ Коины, XP и количество использований должны быть числами!")
+        return
+        
+    await db._conn.execute('INSERT OR REPLACE INTO promocodes (code, reward_coins, reward_xp, max_uses, current_uses) VALUES (?, ?, ?, ?, 0)',
+                          (code, coins, xp, uses))
+    await db._conn.commit()
+    await message.answer(f"✅ Промокод `{code}` успешно создан!\nНаграда: {coins} 🪙, {xp} ✨\nИспользований: {uses}")
+    await state.clear()
+
+@router.callback_query(F.data == "admin_ban_menu")
+async def cb_admin_ban_menu(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id): return
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔨 Забанить", callback_data="admin_ban_user"),
+         InlineKeyboardButton(text="🕊 Разбанить", callback_data="admin_unban_user")],
+        [InlineKeyboardButton(text="« Назад", callback_data="admin_main")]
+    ])
+    await callback.message.edit_text("Меню блокировки пользователей:", reply_markup=kb)
+    await callback.answer()
+
+@router.callback_query(F.data == "admin_ban_user")
+async def cb_admin_ban_user(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id): return
+    await state.set_state(AdminStates.waiting_for_ban_id)
+    await callback.message.edit_text("Отправьте ID пользователя, которого нужно ЗАБАНИТЬ:")
+    await callback.answer()
+
+@router.message(AdminStates.waiting_for_ban_id)
+async def process_ban_id(message: Message, state: FSMContext, db: Database):
+    try:
+        user_id = int(message.text)
+    except ValueError:
+        await message.answer("❌ ID должен быть числом!")
+        return
+    
+    await db._conn.execute('UPDATE users SET is_banned = 1 WHERE id = ?', (user_id,))
+    await db._conn.commit()
+    await message.answer(f"✅ Пользователь `{user_id}` забанен!")
+    await state.clear()
+
+@router.callback_query(F.data == "admin_unban_user")
+async def cb_admin_unban_user(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id): return
+    await state.set_state(AdminStates.waiting_for_unban_id)
+    await callback.message.edit_text("Отправьте ID пользователя, которого нужно РАЗБАНИТЬ:")
+    await callback.answer()
+
+@router.message(AdminStates.waiting_for_unban_id)
+async def process_unban_id(message: Message, state: FSMContext, db: Database):
+    try:
+        user_id = int(message.text)
+    except ValueError:
+        await message.answer("❌ ID должен быть числом!")
+        return
+    
+    await db._conn.execute('UPDATE users SET is_banned = 0 WHERE id = ?', (user_id,))
+    await db._conn.commit()
+    await message.answer(f"✅ Пользователь `{user_id}` разбанен!")
+    await state.clear()
+
 @router.callback_query(F.data.startswith("wl_approve_"))
 async def wl_approve(callback: CallbackQuery, db: Database):
     if not is_admin(callback.from_user.id): return

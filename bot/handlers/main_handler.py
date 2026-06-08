@@ -41,7 +41,19 @@ async def cmd_start(message: Message, db: Database, bot: Bot, state: FSMContext)
     if user.message_count == 0:
         from utils.admin_alerts import notify_admins
         await notify_admins(bot, f"Новый пользователь начал использовать бота: {message.from_user.id} (@{message.from_user.username})")
-    await message.answer("Эм... привет. Я Махиро. А ты кто?", reply_markup=get_main_menu(message.from_user.id))
+        
+    if not user.tutorial_done:
+        await db.add_coins(user.id, 500)
+        await db.complete_tutorial(user.id)
+        tutorial_text = (
+            "О, новенький! Добро пожаловать. Я Махиро. 🎀\n\n"
+            "Давай я покажу тебе, как тут всё устроено. Я перевела тебе твой первый стартовый капитал: **500 🪙**!\n\n"
+            "🎯 **Твой первый квест:**\n"
+            "Нажми кнопку «🌟 Интерактив и Экономика» внизу, затем выбери «Заработок и Финансы» -> «Магазин» и купи себе энергетик!"
+        )
+        await message.answer(tutorial_text, reply_markup=get_main_menu(message.from_user.id))
+    else:
+        await message.answer("Эм... привет. Я Махиро. А ты кто?", reply_markup=get_main_menu(message.from_user.id))
     
 @router.message(F.text.in_(["/stats", "📊 Моя Статистика"]))
 async def cmd_stats(message: Message, db: Database, bot: Bot):
@@ -78,12 +90,33 @@ async def cmd_stats(message: Message, db: Database, bot: Bot):
         pass
         
     image_io = await generate_profile_image(user, avatar_bytes, frame=user.profile_frame)
-    await message.answer_photo(BufferedInputFile(image_io.getvalue(), "profile.png"), caption=text)
+    from bot.keyboards.main_kb import get_stats_kb
+    await message.answer_photo(BufferedInputFile(image_io.getvalue(), "profile.png"), caption=text, reply_markup=get_stats_kb())
 
 
+
+@router.callback_query(F.data == "stats_reset")
+async def cb_stats_reset(callback: CallbackQuery, memory):
+    memory.short.clear_history(callback.from_user.id)
+    await callback.answer("🔄 Память ИИ успешно сброшена!", show_alert=True)
+
+@router.callback_query(F.data == "stats_reminders")
+async def cb_stats_reminders(callback: CallbackQuery, db: Database):
+    reminders = await db.get_user_reminders(callback.from_user.id)
+    if not reminders:
+        text = "⏰ У вас нет активных напоминаний.\n\n*Вы можете создать их с помощью команды /remind*"
+    else:
+        text = "⏰ **Ваши активные напоминания:**\n\n"
+        from datetime import datetime
+        for r in reminders:
+            dt = datetime.fromtimestamp(r.fire_at).strftime('%Y-%m-%d %H:%M')
+            text += f"• {r.text} (до {dt})\n"
+    
+    await callback.message.answer(text)
+    await callback.answer()
 
 @router.message(F.text.in_(["/reset"]))
-async def cmd_reset(message: Message, memory: MemoryManager):
+async def cmd_reset(message: Message, memory):
     memory.short.clear_history(message.from_user.id)
     await message.answer("Хм… начнём сначала? 😅\n(история диалога очищена)")
 

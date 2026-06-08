@@ -11,6 +11,9 @@ class AdminStates(StatesGroup):
     waiting_for_xp_amount = State()
     waiting_for_history_user_id = State()
     waiting_for_reply_text = State()
+    waiting_for_promo_data = State()
+    waiting_for_ban_id = State()
+    waiting_for_unban_id = State()
 
 class SupportStates(StatesGroup):
     waiting_for_ticket = State()

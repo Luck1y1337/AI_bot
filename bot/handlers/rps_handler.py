@@ -59,6 +59,9 @@ async def cb_rps_create(callback: CallbackQuery, db: Database):
     bet = int(callback.data.split("_")[2])
     user_id = callback.from_user.id
     
+    if bet > 100000:
+        return await callback.answer("Максимальная ставка: 100,000 🪙!", show_alert=True)
+    
     for l in RPS_LOBBIES.values():
         if l["p1"] == user_id or l.get("p2") == user_id:
             if l["status"] != "finished":
@@ -155,13 +158,17 @@ async def cb_rps_pick(callback: CallbackQuery, db: Database):
             await db.add_coins(u1, bet)
             await db.add_coins(u2, bet)
         elif win_matrix[c1] == c2:
-            text += f"🏆 Игрок {u1} победил и забрал {bet*2} 🪙!"
-            await db.add_coins(u1, bet*2)
-            await db.add_transaction(u2, u1, bet, "rps_win")
+            tax = int(bet * 0.05)
+            win_amount = (bet * 2) - tax
+            text += f"🏆 Игрок {u1} победил и забрал {win_amount} 🪙 (Налог: {tax} 🪙)!"
+            await db.add_coins(u1, win_amount)
+            await db.add_transaction(u2, u1, win_amount, "rps_win")
         else:
-            text += f"🏆 Игрок {u2} победил и забрал {bet*2} 🪙!"
-            await db.add_coins(u2, bet*2)
-            await db.add_transaction(u1, u2, bet, "rps_win")
+            tax = int(bet * 0.05)
+            win_amount = (bet * 2) - tax
+            text += f"🏆 Игрок {u2} победил и забрал {win_amount} 🪙 (Налог: {tax} 🪙)!"
+            await db.add_coins(u2, win_amount)
+            await db.add_transaction(u1, u2, win_amount, "rps_win")
             
         active_lobbies = [k for k, v in RPS_LOBBIES.items() if v["status"] == "waiting"]
         await callback.message.edit_text(text, reply_markup=get_rps_main_kb(active_lobbies))

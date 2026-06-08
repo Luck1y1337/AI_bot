@@ -118,10 +118,15 @@ async def main():
         price_row = await db_instance.get_crypto_price("mahiro_coin")
         old_price = price_row[0] if price_row else 1000
         import random
-        # Change price between -50% and +200%
-        multiplier = random.uniform(0.5, 3.0)
+        # Limit crypto price scaling to prevent hyperinflation
+        if old_price > 5000:
+            multiplier = random.uniform(0.3, 0.9) # High chance to crash if overvalued
+        else:
+            multiplier = random.uniform(0.5, 2.5) # Reduced max multiplier
+            
         new_price = int(old_price * multiplier)
         if new_price < 10: new_price = 10
+        if new_price > 10000: new_price = 10000 # Absolute max cap
         await db_instance.update_crypto_price("mahiro_coin", new_price)
         
     from utils.backup import perform_backup

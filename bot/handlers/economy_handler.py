@@ -272,7 +272,10 @@ async def process_pay_amount(message: Message, db: Database, state: FSMContext, 
         await state.clear()
         return
         
-    await db.add_coins(target_id, amount)
+    tax = int(amount * 0.05)
+    transfer_amount = amount - tax
+        
+    await db.add_coins(target_id, transfer_amount)
     await db.add_transaction(message.from_user.id, target_id, amount, "user_transfer")
     
     await message.answer(f"Успешно переведено {amount} 🪙 пользователю {target_id}!")

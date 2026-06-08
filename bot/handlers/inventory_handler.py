@@ -44,7 +44,15 @@ async def cb_inventory(callback: CallbackQuery, db: Database):
             "armor": "🛡️ Броня",
             "ring": "💍 Обручальное Кольцо"
         }
-        for item_type, amount in items:
+        
+        # Pagination
+        items_per_page = 10
+        total_pages = (len(items) - 1) // items_per_page + 1
+        page = 0
+        start_idx = page * items_per_page
+        page_items = items[start_idx:start_idx+items_per_page]
+        
+        for item_type, amount in page_items:
             name = emojis.get(item_type, item_type)
             text += f"• {name}: {amount} шт.\n"
             

@@ -53,15 +53,36 @@ async def process_clan_name(message: Message, state: FSMContext, db: Database):
         await message.answer("Клан с таким названием уже существует! Придумайте другое:")
         return
         
-    if not await db.deduct_coins(message.from_user.id, 10000):
-        await message.answer("Не хватает коинов.")
+    await state.update_data(new_clan_name=name)
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Подтвердить (10,000 🪙)", callback_data="confirm_clan_create")],
+        [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_clan_create")]
+    ])
+    await message.answer(f"Создание клана **{name}** будет стоить 10,000 🪙. Вы уверены?", reply_markup=kb)
+
+@router.callback_query(F.data == "confirm_clan_create")
+async def cb_confirm_clan_create(callback: CallbackQuery, state: FSMContext, db: Database):
+    data = await state.get_data()
+    name = data.get("new_clan_name")
+    
+    if not name:
+        return await callback.answer("Ошибка данных. Попробуйте снова.", show_alert=True)
+        
+    if not await db.deduct_coins(callback.from_user.id, 10000):
+        await callback.message.edit_text("Не хватает коинов.")
         await state.clear()
         return
     
-    clan_id = await db.create_clan(name, message.from_user.id)
-    await db.add_transaction(message.from_user.id, 0, 10000, "clan_create")
+    clan_id = await db.create_clan(name, callback.from_user.id)
+    await db.add_transaction(callback.from_user.id, 0, 10000, "clan_create")
     
-    await message.answer(f"🎉 Клан **{name}** успешно создан!")
+    await callback.message.edit_text(f"🎉 Клан **{name}** успешно создан!")
+    await state.clear()
+    
+@router.callback_query(F.data == "cancel_clan_create")
+async def cb_cancel_clan_create(callback: CallbackQuery, state: FSMContext):
+    await callback.message.edit_text("❌ Создание клана отменено.")
     await state.clear()
 
 @router.callback_query(F.data == "clan_my")
