@@ -117,7 +117,7 @@ async def cb_market_buy(callback: CallbackQuery, db: Database, bot: Bot):
             
     try:
         await bot.send_message(s_id, f"🎉 Ваш лот **{item_name}** был куплен на рынке!\nНа ваш счет зачислено {price} 🪙.")
-    except: pass
+    except Exception: pass
     
     await callback.answer("Покупка успешно завершена!", show_alert=True)
     await cb_market(callback, db) # refresh UI
@@ -175,7 +175,7 @@ async def process_sell_price(message: Message, state: FSMContext, db: Database):
     try:
         price = int(message.text)
         if price <= 0: raise ValueError
-    except:
+    except Exception:
         await message.answer("Пожалуйста, введите корректное положительное число.")
         return
         

@@ -197,6 +197,15 @@ class Database:
                 FOREIGN KEY(clan_id) REFERENCES clans(id)
             );
             
+            CREATE TABLE IF NOT EXISTS black_market (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                price INTEGER,
+                item_type TEXT,
+                stock INTEGER,
+                seed_time REAL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_user_cards_user_id ON user_cards(user_id);
             CREATE INDEX IF NOT EXISTS idx_market_lots_seller_id ON market_lots(seller_id);
             CREATE INDEX IF NOT EXISTS idx_inventory_user_id ON inventory(user_id);
@@ -645,3 +654,26 @@ class Database:
         async with self._conn.execute('SELECT profile_frame FROM users WHERE id = ?', (user_id,)) as cursor:
             row = await cursor.fetchone()
             return row[0] if row and row[0] else "default"
+
+    # --- Black Market ---
+    async def get_black_market_items(self) -> List[tuple]:
+        async with self._conn.execute('SELECT id, name, price, item_type, stock, seed_time FROM black_market') as cursor:
+            return await cursor.fetchall()
+
+    async def seed_black_market(self, items: list, seed_time: float):
+        await self._conn.execute('DELETE FROM black_market')
+        for item in items:
+            await self._conn.execute(
+                'INSERT INTO black_market (id, name, price, item_type, stock, seed_time) VALUES (?, ?, ?, ?, ?, ?)',
+                (item["id"], item["name"], item["price"], item["type"], item["stock"], seed_time)
+            )
+        await self._conn.commit()
+
+    async def get_bm_item(self, item_id: str) -> Optional[tuple]:
+        async with self._conn.execute('SELECT id, name, price, item_type, stock FROM black_market WHERE id = ?', (item_id,)) as cursor:
+            return await cursor.fetchone()
+
+    async def decrement_bm_stock(self, item_id: str) -> bool:
+        cursor = await self._conn.execute('UPDATE black_market SET stock = stock - 1 WHERE id = ? AND stock > 0', (item_id,))
+        await self._conn.commit()
+        return cursor.rowcount > 0

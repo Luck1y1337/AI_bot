@@ -6,71 +6,72 @@ import time
 
 router = Router()
 
-# Black Market items rotate every 24 hours. For simplicity we will just generate them randomly and store them in memory.
-BLACK_MARKET_SEED_TIME = 0
-CURRENT_BM_ITEMS = []
+BM_CATALOG = [
+    {"id": "bm_1", "name": "🃏 Эпический Гача-Пак", "price": 50000, "type": "gacha_epic", "stock": 5},
+    {"id": "bm_2", "name": "🐾 Мифический Питомец (Яйцо)", "price": 100000, "type": "pet_mythic", "stock": 1},
+    {"id": "bm_3", "name": "💍 Кольцо Всевластия", "price": 500000, "type": "ring_power", "stock": 1},
+]
 
-def generate_bm_items():
-    global BLACK_MARKET_SEED_TIME, CURRENT_BM_ITEMS
-    now = time.time()
-    if now - BLACK_MARKET_SEED_TIME > 86400 or not CURRENT_BM_ITEMS:
-        BLACK_MARKET_SEED_TIME = now
-        CURRENT_BM_ITEMS = [
-            {"id": "bm_1", "name": "🃏 Эпический Гача-Пак", "price": 50000, "type": "gacha_epic", "stock": 5},
-            {"id": "bm_2", "name": "🐾 Мифический Питомец (Яйцо)", "price": 100000, "type": "pet_mythic", "stock": 1},
-            {"id": "bm_3", "name": "💍 Кольцо Всевластия", "price": 500000, "type": "ring_power", "stock": 1}
-        ]
 
-def get_bm_kb() -> InlineKeyboardMarkup:
-    generate_bm_items()
+async def ensure_bm_seeded(db: Database):
+    items = await db.get_black_market_items()
+    if not items or (time.time() - items[0][5] > 86400):
+        await db.seed_black_market(BM_CATALOG, time.time())
+
+
+async def get_bm_kb(db: Database) -> InlineKeyboardMarkup:
+    await ensure_bm_seeded(db)
+    items = await db.get_black_market_items()
     kb = []
-    for item in CURRENT_BM_ITEMS:
-        if item["stock"] > 0:
-            kb.append([InlineKeyboardButton(text=f"{item['name']} - {item['price']} 🪙 ({item['stock']} шт)", callback_data=f"bm_buy_{item['id']}")])
-            
+    for item_id, name, price, item_type, stock, seed_time in items:
+        if stock > 0:
+            kb.append([InlineKeyboardButton(
+                text=f"{name} - {price} 🪙 ({stock} шт)",
+                callback_data=f"bm_buy_{item_id}"
+            )])
     kb.append([InlineKeyboardButton(text="🔙 Уйти в тень", callback_data="eco_shop")])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
+
 @router.callback_query(F.data == "eco_black_market")
-async def cb_black_market(callback: CallbackQuery):
+async def cb_black_market(callback: CallbackQuery, db: Database):
     text = "🌑 **Чёрный Рынок**\n\nТссс... Здесь продаются самые редкие вещи в игре. Товар обновляется раз в день. Количество строго ограничено!\n\nЧто будешь брать?"
-    await callback.message.edit_text(text, reply_markup=get_bm_kb())
+    await callback.message.edit_text(text, reply_markup=await get_bm_kb(db))
+
 
 @router.callback_query(F.data.startswith("bm_buy_"))
 async def cb_bm_buy(callback: CallbackQuery, db: Database):
     item_id = callback.data.replace("bm_buy_", "")
     user_id = callback.from_user.id
-    
-    generate_bm_items()
-    
-    target_item = next((i for i in CURRENT_BM_ITEMS if i["id"] == item_id), None)
-    
-    if not target_item:
+
+    item = await db.get_bm_item(item_id)
+    if not item:
         return await callback.answer("Товар не найден!", show_alert=True)
-        
-    if target_item["stock"] <= 0:
+
+    bm_id, name, price, item_type, stock = item
+
+    if stock <= 0:
         return await callback.answer("Этот товар уже раскупили!", show_alert=True)
-        
-    if not await db.deduct_coins(user_id, target_item["price"]):
+
+    if not await db.deduct_coins(user_id, price):
         return await callback.answer("Не хватает коинов!", show_alert=True)
-        
-    target_item["stock"] -= 1
-    
-    if target_item["type"] == "gacha_epic":
+
+    if not await db.decrement_bm_stock(item_id):
+        await db.add_coins(user_id, price)
+        return await callback.answer("Этот товар уже раскупили!", show_alert=True)
+
+    if item_type == "gacha_epic":
         cards = await db.get_all_cards()
         if cards:
-            import random as _rng
             epic_and_above = [c for c in cards if c[2] in ("Epic", "Legendary")]
             pool = epic_and_above if epic_and_above else cards
             for _ in range(5):
-                card = _rng.choice(pool)
+                card = random.choice(pool)
                 await db.add_user_card(user_id, card[0])
-        
-    elif target_item["type"] == "pet_mythic":
+    elif item_type == "pet_mythic":
         await db.add_inventory_amount(user_id, "pet_egg_mythic", 1)
-        
-    elif target_item["type"] == "ring_power":
+    elif item_type == "ring_power":
         await db.add_inventory_amount(user_id, "ring_power", 1)
-        
-    await callback.answer(f"Вы успешно купили {target_item['name']}!", show_alert=True)
-    await cb_black_market(callback)
+
+    await callback.answer(f"Вы успешно купили {name}!", show_alert=True)
+    await cb_black_market(callback, db)

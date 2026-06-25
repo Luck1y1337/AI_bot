@@ -54,7 +54,7 @@ async def process_bounty_amount(message: Message, state: FSMContext, db: Databas
     try:
         amount = int(message.text)
         if amount <= 0: raise ValueError
-    except:
+    except Exception:
         return await message.answer("Пожалуйста, введите корректное положительное число.")
         
     data = await state.get_data()
@@ -73,6 +73,6 @@ async def process_bounty_amount(message: Message, state: FSMContext, db: Databas
     
     try:
         await bot.send_message(target_id, f"🚨 ВНИМАНИЕ! Игрок {message.from_user.id} назначил за вашу голову награду в {amount} 🪙!\nБудьте осторожны в Казино.")
-    except: pass
+    except Exception: pass
     
     await state.clear()

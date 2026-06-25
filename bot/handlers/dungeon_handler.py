@@ -28,13 +28,21 @@ async def cb_dungeon_menu(callback: CallbackQuery):
 @router.callback_query(F.data == "dungeon_enter_forest")
 async def cb_dungeon_enter(callback: CallbackQuery, db: Database):
     user_id = callback.from_user.id
-    
-    # Check cooldown
-    user = await db.get_user(user_id)
-    # Reusing last_daily_time or similar is bad, let's just allow it for now but cost energy/coins
-    # Actually, we can just charge 100 coins entry fee
+
+    async with db._conn.execute(
+        'SELECT COUNT(*) FROM transactions WHERE sender_id = ? AND action_type = "dungeon_enter" AND timestamp > ?',
+        (user_id, time.time() - 86400)
+    ) as cursor:
+        row = await cursor.fetchone()
+        runs_today = row[0] if row else 0
+
+    if runs_today >= 3:
+        return await callback.answer("Вы уже совершили 3 экспедиции сегодня! Приходите завтра.", show_alert=True)
+
     if not await db.deduct_coins(user_id, 100):
         return await callback.answer("Вход в Лес стоит 100 🪙! У вас не хватает.", show_alert=True)
+
+    await db.add_transaction(user_id, 0, 100, "dungeon_enter")
         
     scenarios = [
         "Вы идете по тропе и вдруг из кустов на вас выпрыгивает Дикий Гоблин! У него в руках ржавый нож.",

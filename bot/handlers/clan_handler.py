@@ -135,7 +135,7 @@ async def process_clan_donate(message: Message, state: FSMContext, db: Database)
     try:
         amount = int(message.text)
         if amount <= 0: raise ValueError
-    except:
+    except Exception:
         await message.answer("Пожалуйста, введите корректное положительное число.")
         return
         
@@ -414,7 +414,7 @@ async def process_clan_kick(message: Message, state: FSMContext, db: Database):
     await message.answer(f"✅ Участник {target_id} выгнан из клана.")
     try:
         await message.bot.send_message(target_id, f"Вы были исключены из клана <b>{user_clan[1]}</b>.", parse_mode="HTML")
-    except: pass
+    except Exception: pass
     await state.clear()
 
 # --- Clan Bosses ---

@@ -43,7 +43,7 @@ class WhitelistMiddleware(BaseMiddleware):
                     for admin_id in settings.ADMIN_USER_IDS:
                         try:
                             await event.bot.send_message(admin_id, f"📝 **Новая заявка на доступ!**\n\nID: `{user_id}`\nПользователь: {username}", reply_markup=kb)
-                        except:
+                        except Exception:
                             pass
                 return # Block execution
                 

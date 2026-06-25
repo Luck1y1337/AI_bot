@@ -113,7 +113,7 @@ async def process_bj_bet(message: Message, state: FSMContext, db: Database):
     try:
         bet = int(message.text)
         if bet <= 0: raise ValueError
-    except:
+    except (ValueError, TypeError):
         await message.answer("Пожалуйста, введите корректную ставку (число > 0).")
         return
         
@@ -277,7 +277,7 @@ async def cmd_rps(message: Message, db: Database):
     try:
         bet = int(parts[1])
         if bet <= 0: raise ValueError
-    except:
+    except (ValueError, TypeError):
         await message.answer("Некорректная ставка.")
         return
         

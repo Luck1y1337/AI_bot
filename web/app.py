@@ -32,7 +32,7 @@ def verify_token(authorization: str = Header(None)):
     token = authorization.split(" ")[1]
     try:
         jwt.decode(token, settings.ADMIN_PANEL_TOKEN, algorithms=["HS256"])
-    except:
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 @app.get("/", response_class=HTMLResponse)

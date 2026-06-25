@@ -71,7 +71,7 @@ async def process_trade_amount(message: Message, state: FSMContext, db: Database
     try:
         amount = int(message.text)
         if amount <= 0: raise ValueError
-    except:
+    except Exception:
         return await message.answer("Пожалуйста, введите корректное положительное число.")
         
     target_id = data.get("trade_target")
@@ -102,7 +102,7 @@ async def process_trade_amount(message: Message, state: FSMContext, db: Database
             f"🤝 **Входящий Трейд!**\n\nИгрок {user_id} хочет передать вам:\nПредмет: {item_type}\nКоличество: {amount} шт.\n\nПринять?",
             reply_markup=get_trade_confirm_kb(trade_id)
         )
-    except: pass
+    except Exception: pass
     
     await state.clear()
 
@@ -125,7 +125,7 @@ async def cb_trade_accept(callback: CallbackQuery, db: Database, bot: Bot):
         trade["status"] = "failed"
         await callback.message.edit_text("У отправителя больше нет этих предметов!")
         try: await bot.send_message(trade["from"], f"Трейд #{trade_id} отменен: у вас не хватило предметов.")
-        except: pass
+        except Exception: pass
         return
         
     await db.add_inventory_amount(trade["to"], trade["item"], trade["amount"])
@@ -133,7 +133,7 @@ async def cb_trade_accept(callback: CallbackQuery, db: Database, bot: Bot):
     
     await callback.message.edit_text(f"✅ Вы успешно получили {trade['amount']}x {trade['item']} от {trade['from']}!")
     try: await bot.send_message(trade["from"], f"✅ Трейд #{trade_id} завершен! Игрок {trade['to']} принял вещи.")
-    except: pass
+    except Exception: pass
     del ACTIVE_TRADES[trade_id]
 
 @router.callback_query(F.data.startswith("trade_decline_"))
@@ -147,7 +147,7 @@ async def cb_trade_decline(callback: CallbackQuery, bot: Bot):
     
     await callback.message.edit_text("❌ Вы отклонили трейд.")
     try: await bot.send_message(trade["from"], f"❌ Игрок {trade['to']} отклонил трейд #{trade_id}.")
-    except: pass
+    except Exception: pass
     del ACTIVE_TRADES[trade_id]
 
 @router.callback_query(F.data == "trade_cancel")

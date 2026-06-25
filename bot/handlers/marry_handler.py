@@ -120,7 +120,7 @@ async def marry_select(callback: CallbackQuery, db: Database, state: FSMContext,
     ])
     try:
         await bot.send_message(target_id, f"💍 Пользователь {user.id} предлагает вам вступить в брак!\nБрак дает вам Совместный Дом с баффами.", reply_markup=kb)
-    except:
+    except Exception:
         await callback.message.answer(f"Не удалось отправить сообщение пользователю {target_id}.")
 
 @router.callback_query(F.data.startswith("marry_accept_"))
@@ -135,7 +135,7 @@ async def cb_marry_accept(callback: CallbackQuery, db: Database, bot: Bot):
     if not await db.deduct_coins(proposer_id, 5000):
         await callback.message.edit_text("У инициатора больше нет 5000 🪙 на кольца! Свадьба отменяется.")
         try: await bot.send_message(proposer_id, f"💔 {target_id} согласился на брак, но у вас не хватило коинов!")
-        except: pass
+        except Exception: pass
         return
         
     await db.add_marriage(proposer_id, target_id)
@@ -145,7 +145,7 @@ async def cb_marry_accept(callback: CallbackQuery, db: Database, bot: Bot):
     await callback.message.edit_text(f"🎉 Вы успешно вступили в брак с {proposer_id}!")
     try:
         await bot.send_message(proposer_id, f"🎉 Пользователь {target_id} согласился на брак! -5000 🪙 за кольца. Поздравляем!")
-    except: pass
+    except Exception: pass
 
 @router.callback_query(F.data.startswith("marry_decline_"))
 async def cb_marry_decline(callback: CallbackQuery, bot: Bot):
@@ -153,7 +153,7 @@ async def cb_marry_decline(callback: CallbackQuery, bot: Bot):
     await callback.message.edit_text("Вы отказались от предложения.")
     try:
         await bot.send_message(proposer_id, f"💔 Пользователь {callback.from_user.id} отказался от вашего предложения руки и сердца.")
-    except: pass
+    except Exception: pass
 
 @router.callback_query(MarryStates.waiting_for_partner, F.data == "pay_cancel")
 async def marry_cancel(callback: CallbackQuery, state: FSMContext):

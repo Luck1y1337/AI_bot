@@ -115,7 +115,7 @@ async def wl_approve(callback: CallbackQuery, db: Database):
     await callback.message.edit_text(f"{callback.message.text}\n\n✅ **ОДОБРЕНО** администратором.")
     try:
         await callback.bot.send_message(target_id, "🎉 Администратор одобрил вашу заявку!\nТеперь вы можете общаться со мной. Напишите /start")
-    except: pass
+    except Exception: pass
     await callback.answer()
 
 @router.callback_query(F.data.startswith("wl_deny_"))
@@ -126,7 +126,7 @@ async def wl_deny(callback: CallbackQuery, db: Database):
     await callback.message.edit_text(f"{callback.message.text}\n\n❌ **ОТКЛОНЕНО** администратором.")
     try:
         await callback.bot.send_message(target_id, "❌ Администратор отклонил вашу заявку на доступ.")
-    except: pass
+    except Exception: pass
     await callback.answer()
 
 @router.callback_query(F.data == "admin_main")
@@ -265,7 +265,7 @@ async def process_coin_amount(message: Message, state: FSMContext, db: Database)
         elif diff < 0:
             await db.add_transaction(message.from_user.id, user_id, abs(diff), "admin_remove")
         await message.answer(f"Баланс пользователя {user_id} успешно изменен на {amount} 🪙.", reply_markup=get_back_button("admin_main"))
-    except:
+    except Exception:
         await message.answer("Пожалуйста, отправьте корректное число.", reply_markup=get_back_button("admin_main"))
     await state.clear()
 
@@ -286,7 +286,7 @@ async def process_xp_amount(message: Message, state: FSMContext, db: Database):
         user.xp = amount
         await db.update_user(user)
         await message.answer(f"XP пользователя {user_id} успешно изменен на {amount} ✨.", reply_markup=get_back_button("admin_main"))
-    except:
+    except Exception:
         await message.answer("Пожалуйста, отправьте корректное число.", reply_markup=get_back_button("admin_main"))
     await state.clear()
 
@@ -350,7 +350,7 @@ async def process_broadcast(message: Message, state: FSMContext, db: Database):
             else:
                 await message.copy_to(u.id)
             sent += 1
-        except:
+        except Exception:
             pass
     await message.answer(f"Рассылка отправлена {sent} пользователям.", reply_markup=get_back_button("admin_main"))
     await state.clear()
@@ -502,7 +502,7 @@ async def process_whitelist(message: Message, state: FSMContext, db: Database):
         uid = int(message.text)
         await db.add_to_whitelist(uid)
         await message.answer(f"Пользователь {uid} добавлен в белый список.", reply_markup=get_back_button("admin_whitelist_menu"))
-    except:
+    except Exception:
         await message.answer("Неверный ID пользователя.", reply_markup=get_back_button("admin_whitelist_menu"))
     await state.clear()
 
@@ -527,7 +527,7 @@ async def process_blacklist(message: Message, state: FSMContext, db: Database):
         user.is_banned = True
         await db.update_user(user)
         await message.answer(f"Пользователь {uid} забанен.", reply_markup=get_back_button("admin_blacklist_menu"))
-    except:
+    except Exception:
         await message.answer("Неверный ID пользователя.", reply_markup=get_back_button("admin_blacklist_menu"))
     await state.clear()
 
@@ -546,7 +546,7 @@ async def process_unblacklist(message: Message, state: FSMContext, db: Database)
         user.is_banned = False
         await db.update_user(user)
         await message.answer(f"Пользователь {uid} успешно разбанен.", reply_markup=get_back_button("admin_blacklist_menu"))
-    except:
+    except Exception:
         await message.answer("Неверный ID пользователя.", reply_markup=get_back_button("admin_blacklist_menu"))
     await state.clear()
 

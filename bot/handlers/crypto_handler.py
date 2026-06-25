@@ -49,7 +49,7 @@ async def process_crypto_buy(message: Message, state: FSMContext, db: Database):
     try:
         amount = int(message.text)
         if amount <= 0: raise ValueError
-    except:
+    except Exception:
         return await message.answer("Пожалуйста, введите корректное положительное число.")
         
     price_row = await db.get_crypto_price("mahiro_coin")
@@ -75,7 +75,7 @@ async def process_crypto_sell(message: Message, state: FSMContext, db: Database)
     try:
         amount = int(message.text)
         if amount <= 0: raise ValueError
-    except:
+    except Exception:
         return await message.answer("Пожалуйста, введите корректное положительное число.")
         
     user_id = message.from_user.id

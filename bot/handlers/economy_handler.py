@@ -260,9 +260,9 @@ async def process_pay_amount(message: Message, db: Database, state: FSMContext, 
     await message.answer(f"Успешно переведено {transfer_amount} 🪙 пользователю {target_id}! (Налог: {tax} 🪙)")
     try:
         await bot.send_message(target_id, f"💸 Вам пришел перевод: {transfer_amount} 🪙 от пользователя {message.from_user.id}!")
-    except:
+    except Exception:
         pass
-        
+
     await state.clear()
 
 @router.callback_query(F.data == "back_to_economy")
@@ -552,8 +552,9 @@ async def process_casino_bet(message: Message, db: Database, state: FSMContext, 
     ])
     try:
         await bot.send_message(target_id, f"🎲 Пользователь {message.from_user.id} бросил вам вызов в Coinflip на {amount} 🪙!\nПринимаете вызов?", reply_markup=kb)
-    except:
-        await db.add_coins(message.from_user.id, amount) # refund
+    except Exception:
+        await db.add_coins(message.from_user.id, amount)
+
         await message.answer(f"Не удалось отправить сообщение пользователю {target_id}. Ставка возвращена.")
 
 @router.callback_query(F.data.startswith("casino_accept_"))
@@ -604,7 +605,7 @@ async def cb_casino_accept(callback: CallbackQuery, db: Database, bot: Bot):
     await callback.message.answer(target_text)
     try:
         await bot.send_message(challenger_id, challenger_text)
-    except: pass
+    except Exception: pass
 
 @router.callback_query(F.data.startswith("casino_decline_"))
 async def cb_casino_decline(callback: CallbackQuery, db: Database, bot: Bot):
@@ -617,7 +618,7 @@ async def cb_casino_decline(callback: CallbackQuery, db: Database, bot: Bot):
     await callback.message.edit_text("❌ Вы отклонили вызов.")
     try:
         await bot.send_message(challenger_id, f"❌ Пользователь {callback.from_user.id} отклонил ваш вызов. Ставка {amount} 🪙 возвращена.")
-    except: pass
+    except Exception: pass
 
 
 
@@ -662,7 +663,7 @@ async def rep_select(callback: CallbackQuery, db: Database, state: FSMContext, b
     await state.clear()
     await callback.message.edit_text(f"🌟 Вы успешно дали +Rep пользователю {target_id}! Ему начислено +50 XP.")
     try: await bot.send_message(target_id, f"🌟 Пользователь {callback.from_user.id} выдал вам +Rep! Вы получили +50 XP.")
-    except: pass
+    except Exception: pass
 
 @router.callback_query(RepStates.waiting_for_target, F.data == "pay_cancel")
 async def rep_cancel(callback: CallbackQuery, state: FSMContext):

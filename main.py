@@ -28,26 +28,34 @@ logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
                     handlers=[logging.FileHandler("logs/mahiro.log"), logging.StreamHandler(sys.stdout)])
 
+logger = logging.getLogger(__name__)
+
 async def check_reminders(bot: Bot, db: Database):
     reminders = await db.get_due_reminders(time.time())
     for r in reminders:
         try:
             await bot.send_message(r.user_id, f"Uh... hey. You told me to remind you about this:\n{r.text}")
             await db.delete_reminder(r.id)
-        except:
-            pass
+        except Exception as e:
+            logging.warning(f"Failed to send reminder {r.id} to {r.user_id}: {e}")
+            await db.delete_reminder(r.id)
+
+MAX_PROACTIVE_USERS = 20
 
 async def proactive_message(bot: Bot, db: Database, mistral: MistralClient, memory: MemoryManager):
+    import random
     users = await db.get_all_users()
-    for u in users:
-        if u.trust > 40:
-            prompt = "It's a random check-in time. Say something in-character."
-            sys = build_system_prompt(u.mood, u.trust, [], memory.long.get_user_memory(u.id))
-            try:
-                resp = await mistral.generate_response(prompt, sys)
-                await bot.send_message(u.id, resp)
-            except:
-                pass
+    candidates = [u for u in users if u.trust > 40]
+    if len(candidates) > MAX_PROACTIVE_USERS:
+        candidates = random.sample(candidates, MAX_PROACTIVE_USERS)
+    for u in candidates:
+        prompt = "It's a random check-in time. Say something in-character."
+        sys = build_system_prompt(u.mood, u.trust, [], memory.long.get_user_memory(u.id))
+        try:
+            resp = await mistral.generate_response(prompt, sys)
+            await bot.send_message(u.id, resp)
+        except Exception as e:
+            logging.debug(f"Proactive message to {u.id} failed: {e}")
 
 async def main():
     os.makedirs("data", exist_ok=True)

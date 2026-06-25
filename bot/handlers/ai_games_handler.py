@@ -47,7 +47,7 @@ async def process_guess_number(message: Message, state: FSMContext, mistral: Mis
         
     try:
         guess = int(message.text)
-    except:
+    except (ValueError, TypeError):
         await message.answer("Просто отправь мне число (или 'отмена' чтобы закончить).")
         return
         
