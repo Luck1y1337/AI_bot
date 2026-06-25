@@ -1,7 +1,7 @@
 from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from database.repository import Database
-from bot.fsm.states import PayStates, CasinoStates, MarryStates, ShopStates, RepStates
+from bot.fsm.states import PayStates, CasinoStates, ShopStates, RepStates
 from aiogram.fsm.context import FSMContext
 from bot.keyboards.main_kb import get_pay_users_kb, get_economy_menu, get_eco_games_kb, get_eco_income_kb, get_eco_social_kb, get_social_users_kb
 from bot.keyboards.economy_kb import get_businesses_kb, get_shop_kb, get_bank_kb

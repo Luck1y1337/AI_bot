@@ -1,27 +1,23 @@
 from aiogram import Router, F, Bot
 from aiogram.types import Message, FSInputFile, BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from database.repository import Database
 from aiogram.filters import CommandStart, StateFilter
+from aiogram.fsm.context import FSMContext
+from database.repository import Database
 from ai.mistral_client import MistralClient
 from ai.prompt_builder import build_system_prompt
 from memory.memory_manager import MemoryManager
 from media.tts import generate_tts
 from config.settings import get_settings
-from aiogram.fsm.context import FSMContext
 from bot.fsm.states import VoiceStates, PromoStates
-from media.charts import generate_activity_chart, generate_trust_chart
 from utils.triggers import analyze_triggers
 from ai.triggers import TriggerSystem
 from utils.achievements import check_achievements
 from utils.levels import get_level, get_title, get_xp_for_next, check_level_up
-from bot.keyboards.main_kb import get_main_menu, get_pay_users_kb
-from aiogram.fsm.context import FSMContext
-from bot.fsm.states import PayStates
-from aiogram.types import CallbackQuery
+from bot.keyboards.main_kb import get_main_menu
+from utils.profile_gen import generate_profile_image
 import random
 import os
 import io
-from utils.profile_gen import generate_profile_image
 
 router = Router()
 old_trigger_system = TriggerSystem()

@@ -1,7 +1,14 @@
 import asyncio
 import logging
+import os
+import sys
+import time
+import threading
+
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
 from config.settings import get_settings
 from database.repository import Database
 from ai.mistral_client import MistralClient
@@ -14,15 +21,9 @@ from bot.middlewares.whitelist import WhitelistMiddleware
 from bot.middlewares.logging_middleware import LoggingMiddleware
 from bot.handlers import main_handler, admin_handler, game_handler, reminder_handler, gift_handler, support_handler, donate_handler, economy_handler, clan_handler, gacha_handler, pet_handler, raid_handler, market_handler
 from media.mood_images import create_placeholders
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-import threading
 from web.app import start_web
-import os
-import time
 
 os.makedirs("logs", exist_ok=True)
-
-import sys
 
 logging.basicConfig(level=logging.INFO, 
                     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",

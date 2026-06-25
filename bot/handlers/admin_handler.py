@@ -5,7 +5,7 @@ from database.repository import Database
 from config.settings import get_settings
 from bot.fsm.states import AdminStates
 from bot.keyboards.admin_kb import get_admin_main_kb, get_settings_menu, get_back_button, get_whitelist_menu, get_blacklist_menu, get_users_selection_kb
-from media.charts import generate_activity_chart, generate_trust_chart
+from media.charts import generate_activity_chart
 import psutil
 import platform
 import os
