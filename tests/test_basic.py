@@ -211,3 +211,23 @@ def test_multi_level_up():
     assert leveled is True
     assert new_level == 6
     assert reward > 0
+
+
+# --- Lottery ---
+
+async def test_lottery_tickets(db):
+    await db.get_user(900)
+    await db.buy_lottery_ticket(900, 1)
+    await db.buy_lottery_ticket(900, 1)
+    count = await db.get_user_tickets(900, 1)
+    assert count == 2
+    total, players = await db.get_lottery_pool(1)
+    assert total >= 2
+    assert players >= 1
+
+
+async def test_lottery_draw(db):
+    await db.get_user(901)
+    await db.buy_lottery_ticket(901, 50)
+    winner = await db.draw_lottery_winner(50)
+    assert winner == 901

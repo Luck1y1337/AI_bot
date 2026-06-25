@@ -83,6 +83,17 @@ async def cmd_leaderboard(message: Message, db: Database):
         text += f"{medal}{title_text} {display_name} — Ур. {lvl} ({u.xp} XP)\n"
     await message.answer(text)
 
+@router.callback_query(F.data == "eco_blackjack")
+async def cb_eco_blackjack(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(BlackjackStates.waiting_for_bet)
+    await callback.message.edit_text("🃏 **Блэкджек (21)**\n\nОбыграйте дилера, не набрав больше 21!\n\nВведите ставку (в коинах):")
+    await callback.answer()
+
+@router.callback_query(F.data == "roul_main")
+async def cb_roul_main(callback: CallbackQuery):
+    await callback.message.edit_text("🎡 **Рулетка**\n\nВыберите сумму ставки:", reply_markup=get_roulette_bet_kb())
+    await callback.answer()
+
 # --- Блэкджек (21) ---
 def get_deck():
     suits = ['♠️', '♥️', '♦️', '♣️']

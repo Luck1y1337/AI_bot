@@ -101,7 +101,7 @@ async def main():
     dp.include_router(economy_handler.router)
     dp.include_router(clan_handler.router)
     
-    from bot.handlers import inventory_handler, marry_handler, bounty_handler, roulette_pvp_handler, black_market_handler, crypto_handler, rps_handler, trade_handler, customization_handler, dungeon_handler
+    from bot.handlers import inventory_handler, marry_handler, bounty_handler, roulette_pvp_handler, black_market_handler, crypto_handler, rps_handler, trade_handler, customization_handler, dungeon_handler, slots_handler, lottery_handler
     dp.include_router(inventory_handler.router)
     dp.include_router(marry_handler.router)
     dp.include_router(bounty_handler.router)
@@ -112,7 +112,9 @@ async def main():
     dp.include_router(trade_handler.router)
     dp.include_router(customization_handler.router)
     dp.include_router(dungeon_handler.router)
-    
+    dp.include_router(slots_handler.router)
+    dp.include_router(lottery_handler.router)
+
     dp.include_router(gacha_handler.router)
     dp.include_router(pet_handler.router)
     dp.include_router(raid_handler.router)
@@ -138,12 +140,32 @@ async def main():
         if new_price > 10000: new_price = 10000 # Absolute max cap
         await db_instance.update_crypto_price("mahiro_coin", new_price)
         
+    async def draw_lottery(bot_inst: Bot, db_inst: Database):
+        round_id = await db_inst.get_current_lottery_round()
+        total_tickets, total_players = await db_inst.get_lottery_pool(round_id)
+        if total_tickets == 0:
+            return
+        jackpot = total_tickets * 100
+        winner_id = await db_inst.draw_lottery_winner(round_id)
+        if not winner_id:
+            return
+        await db_inst.add_coins(winner_id, jackpot)
+        try:
+            await bot_inst.send_message(winner_id, f"🎉🎟 **ВЫ ВЫИГРАЛИ ЛОТЕРЕЮ!**\n\nДжекпот: **{jackpot} 🪙**!\nПоздравляем!")
+        except Exception:
+            pass
+        # Start new round
+        await db_inst.buy_lottery_ticket(0, round_id + 1)
+        await db_inst._conn.execute('DELETE FROM lottery_tickets WHERE user_id = 0')
+        await db_inst._conn.commit()
+
     from utils.backup import perform_backup
     scheduler = AsyncIOScheduler()
     scheduler.add_job(check_reminders, 'interval', seconds=60, args=[bot, db])
     scheduler.add_job(update_crypto_market, 'interval', minutes=60, args=[db])
     scheduler.add_job(proactive_message, 'cron', hour='8,23', args=[bot, db, mistral, memory])
     scheduler.add_job(perform_backup, 'cron', hour='3', minute='0', args=[bot])
+    scheduler.add_job(draw_lottery, 'cron', day_of_week='sun', hour='20', minute='0', args=[bot, db])
     scheduler.start()
 
     # Web App in background

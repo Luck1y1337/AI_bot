@@ -197,6 +197,14 @@ class Database:
                 FOREIGN KEY(clan_id) REFERENCES clans(id)
             );
             
+            CREATE TABLE IF NOT EXISTS lottery_tickets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                round_id INTEGER,
+                timestamp REAL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+
             CREATE TABLE IF NOT EXISTS black_market (
                 id TEXT PRIMARY KEY,
                 name TEXT,
@@ -686,3 +694,40 @@ class Database:
         async with self._conn.execute('SELECT COUNT(*) FROM users WHERE referred_by = ?', (user_id,)) as cursor:
             row = await cursor.fetchone()
             return row[0] if row else 0
+
+    # --- Lottery ---
+    async def get_current_lottery_round(self) -> int:
+        async with self._conn.execute('SELECT COALESCE(MAX(round_id), 0) FROM lottery_tickets') as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row[0] else 1
+
+    async def buy_lottery_ticket(self, user_id: int, round_id: int):
+        await self._conn.execute(
+            'INSERT INTO lottery_tickets (user_id, round_id, timestamp) VALUES (?, ?, ?)',
+            (user_id, round_id, __import__('time').time())
+        )
+        await self._conn.commit()
+
+    async def get_user_tickets(self, user_id: int, round_id: int) -> int:
+        async with self._conn.execute(
+            'SELECT COUNT(*) FROM lottery_tickets WHERE user_id = ? AND round_id = ?',
+            (user_id, round_id)
+        ) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else 0
+
+    async def get_lottery_pool(self, round_id: int) -> tuple:
+        async with self._conn.execute(
+            'SELECT COUNT(*), COUNT(DISTINCT user_id) FROM lottery_tickets WHERE round_id = ?',
+            (round_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            return row[0], row[1]
+
+    async def draw_lottery_winner(self, round_id: int) -> Optional[int]:
+        async with self._conn.execute(
+            'SELECT user_id FROM lottery_tickets WHERE round_id = ? ORDER BY RANDOM() LIMIT 1',
+            (round_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else None
