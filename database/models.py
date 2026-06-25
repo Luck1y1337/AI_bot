@@ -16,6 +16,8 @@ class User:
     is_vip: bool = False
     profile_frame: str = "default"
     tutorial_done: bool = False
+    streak_count: int = 0
+    last_streak_date: str = ""
 
 @dataclass
 class Transaction:

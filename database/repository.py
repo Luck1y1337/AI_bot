@@ -222,6 +222,8 @@ class Database:
             'ALTER TABLE users ADD COLUMN profile_frame TEXT DEFAULT "default"',
             'ALTER TABLE users ADD COLUMN tutorial_done BOOLEAN DEFAULT 0',
             'ALTER TABLE users ADD COLUMN username TEXT DEFAULT ""',
+            'ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0',
+            'ALTER TABLE users ADD COLUMN last_streak_date TEXT DEFAULT ""',
             'ALTER TABLE clans ADD COLUMN base_level INTEGER DEFAULT 1',
             'ALTER TABLE clans ADD COLUMN war_wins INTEGER DEFAULT 0',
             'ALTER TABLE inventory ADD COLUMN amount INTEGER DEFAULT 1',
@@ -286,14 +288,14 @@ class Database:
             await self._conn.close()
 
     async def get_user(self, user_id: int) -> User:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip, profile_frame, tutorial_done FROM users WHERE id = ?', (user_id,)) as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip, profile_frame, tutorial_done, streak_count, last_streak_date FROM users WHERE id = ?', (user_id,)) as cursor:
             row = await cursor.fetchone()
             if row:
                 return User(*row)
             # Create user if not exists
             await self._conn.execute('INSERT INTO users (id) VALUES (?)', (user_id,))
             await self._conn.commit()
-            return User(user_id, 50, 'normal', 0, 0, 0, False, 0.0, "", None, False, "default", False)
+            return User(user_id, 50, 'normal', 0, 0, 0, False, 0.0, "", None, False, "default", False, 0, "")
 
     async def deduct_coins(self, user_id: int, amount: int) -> bool:
         cursor = await self._conn.execute('UPDATE users SET coins = coins - ? WHERE id = ? AND coins >= ?', (amount, user_id, amount))
@@ -306,12 +308,12 @@ class Database:
 
     async def update_user(self, user: User):
         await self._conn.execute('''
-            UPDATE users SET trust = ?, mood = ?, message_count = ?, xp = ?, coins = ?, is_banned = ?, last_daily_time = ?, username = ?, custom_prompt = ?, is_vip = ?, profile_frame = ?, tutorial_done = ? WHERE id = ?
-        ''', (user.trust, user.mood, user.message_count, user.xp, user.coins, user.is_banned, user.last_daily_time, user.username, user.custom_prompt, user.is_vip, user.profile_frame, user.tutorial_done, user.id))
+            UPDATE users SET trust = ?, mood = ?, message_count = ?, xp = ?, coins = ?, is_banned = ?, last_daily_time = ?, username = ?, custom_prompt = ?, is_vip = ?, profile_frame = ?, tutorial_done = ?, streak_count = ?, last_streak_date = ? WHERE id = ?
+        ''', (user.trust, user.mood, user.message_count, user.xp, user.coins, user.is_banned, user.last_daily_time, user.username, user.custom_prompt, user.is_vip, user.profile_frame, user.tutorial_done, user.streak_count, user.last_streak_date, user.id))
         await self._conn.commit()
         
     async def get_all_users(self) -> List[User]:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip, profile_frame, tutorial_done FROM users') as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip, profile_frame, tutorial_done, streak_count, last_streak_date FROM users') as cursor:
             rows = await cursor.fetchall()
             return [User(*row) for row in rows]
             
@@ -362,7 +364,7 @@ class Database:
             return [Achievement(*row) for row in rows]
 
     async def get_top_users_by_xp(self, limit: int = 10) -> List[User]:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip, profile_frame, tutorial_done FROM users ORDER BY xp DESC LIMIT ?', (limit,)) as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip, profile_frame, tutorial_done, streak_count, last_streak_date FROM users ORDER BY xp DESC LIMIT ?', (limit,)) as cursor:
             rows = await cursor.fetchall()
             return [User(*row) for row in rows]
 

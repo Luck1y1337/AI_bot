@@ -69,15 +69,18 @@ async def process_quiz(callback: CallbackQuery, db: Database):
 
 @router.message(F.text.in_(["/leaderboard", "🏆 Лидеры"]))
 async def cmd_leaderboard(message: Message, db: Database):
+    from utils.levels import get_level, get_title
     top_users = await db.get_top_users_by_xp(10)
-    text = "🏆 **Таблица Лидеров (XP)** 🏆\n\n"
+    medals = ["🥇", "🥈", "🥉"]
+    text = "🏆 **Таблица Лидеров** 🏆\n\n"
     for i, u in enumerate(top_users):
         inventory = await db.get_user_inventory(u.id)
         titles = [item[3] for item in inventory if item[2] == 'title']
         title_text = f" [{titles[0]}]" if titles else ""
-        
+        medal = medals[i] if i < 3 else f"`{i+1}.`"
         display_name = f"@{u.username}" if u.username else f"ID {u.id}"
-        text += f"{i+1}.{title_text} {display_name} - {u.xp} XP\n"
+        lvl = get_level(u.xp)
+        text += f"{medal}{title_text} {display_name} — Ур. {lvl} ({u.xp} XP)\n"
     await message.answer(text)
 
 # --- Блэкджек (21) ---

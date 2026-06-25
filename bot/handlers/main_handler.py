@@ -13,6 +13,7 @@ from media.charts import generate_activity_chart, generate_trust_chart
 from utils.triggers import analyze_triggers
 from ai.triggers import TriggerSystem
 from utils.achievements import check_achievements
+from utils.levels import get_level, get_title, get_xp_for_next, check_level_up
 from bot.keyboards.main_kb import get_main_menu, get_pay_users_kb
 from aiogram.fsm.context import FSMContext
 from bot.fsm.states import PayStates
@@ -68,13 +69,22 @@ async def cmd_stats(message: Message, db: Database, bot: Bot):
     titles = [item[3] for item in inventory if item[2] == 'title']
     title_text = f" [{titles[0]}]" if titles else ""
     
+    from utils.formatting import generate_progress_bar
+    level = get_level(user.xp)
+    xp_cur, xp_need = get_xp_for_next(user.xp)
+    xp_bar = generate_progress_bar(xp_cur, xp_need, length=10)
+    rank_title = get_title(user.xp)
+    streak_text = f"🔥 Streak: {user.streak_count} дн." if user.streak_count > 1 else ""
+
     text = (f"**Твоя Статистика**{title_text}\n"
-            f"Сообщений: {user.message_count}\n"
-            f"Доверие: {user.trust}%\n"
-            f"Настроение: {user.mood}\n"
-            f"XP: {user.xp} ✨\n"
-            f"MahiroCoins: 🪙 {user.coins}\n\n"
-            f"**Достижения:**\n{ach_text}")
+            f"📊 Уровень: **{level}** — {rank_title}\n"
+            f"✨ XP: {xp_bar} {xp_cur}/{xp_need}\n"
+            f"🪙 MahiroCoins: {user.coins}\n"
+            f"💬 Сообщений: {user.message_count}\n"
+            f"💕 Доверие: {user.trust}%\n"
+            f"😊 Настроение: {user.mood}\n"
+            f"{streak_text}\n\n"
+            f"**Достижения:**\n{ach_text}").strip()
             
     # Generate profile image
     avatar_bytes = None
@@ -271,6 +281,7 @@ async def process_message(message: Message, db: Database, mistral: MistralClient
     has_slime = any(i[2] == "pet" and i[3] == "Слайм-Помощник" for i in inventory)
     if has_slime:
         earned_xp = int(earned_xp * 1.2)
+    old_xp = user.xp
     user.xp += earned_xp
     
     # Analyze triggers
@@ -307,6 +318,14 @@ async def process_message(message: Message, db: Database, mistral: MistralClient
     
     await db.process_contract_action(user_id, "send_messages", 1)
     
+    # Level up check
+    leveled_up, new_level, level_reward = check_level_up(old_xp, user.xp)
+    level_text = ""
+    if leveled_up:
+        user.coins += level_reward
+        new_title = get_title(user.xp)
+        level_text = f"\n\n🎉 **Уровень {new_level}!** (+{level_reward} 🪙) — {new_title}"
+
     # Achievements
     achievements = await check_achievements(user, db, message)
     ach_text = f"\n\n🏆 Открыты достижения: {', '.join(achievements)}" if achievements else ""
@@ -315,7 +334,7 @@ async def process_message(message: Message, db: Database, mistral: MistralClient
     if random.random() < 0.2:
         img_path = f"media/images/{user.mood}.png"
         if os.path.exists(img_path):
-            await message.answer_photo(FSInputFile(img_path), caption=response + ach_text, reply_markup=get_main_menu(user_id))
+            await message.answer_photo(FSInputFile(img_path), caption=response + level_text + ach_text, reply_markup=get_main_menu(user_id))
             return
-            
-    await message.answer(response + ach_text, reply_markup=get_main_menu(user_id))
+
+    await message.answer(response + level_text + ach_text, reply_markup=get_main_menu(user_id))

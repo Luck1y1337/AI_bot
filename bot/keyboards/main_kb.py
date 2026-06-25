@@ -42,16 +42,17 @@ def get_pay_users_kb(users: list, page: int = 0) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 def get_social_users_kb(users: list, page: int = 0) -> InlineKeyboardMarkup:
+    from utils.levels import get_level
     keyboard = []
     items_per_page = 10
     start_idx = page * items_per_page
     end_idx = start_idx + items_per_page
     current_users = users[start_idx:end_idx]
-    
+
     for user in current_users:
         display_name = f"@{user.username}" if user.username else f"ID: {user.id}"
         keyboard.append([InlineKeyboardButton(
-            text=f"👤 {display_name} | Уровень: {user.xp // 100 + 1}", 
+            text=f"👤 {display_name} | Ур. {get_level(user.xp)}",
             callback_data=f"pay_select_{user.id}"
         )])
         
@@ -69,7 +70,7 @@ def get_social_users_kb(users: list, page: int = 0) -> InlineKeyboardMarkup:
 
 def get_economy_menu() -> InlineKeyboardMarkup:
     kb = [
-        [InlineKeyboardButton(text="📅 Ежедневный Бонус", callback_data="eco_daily")],
+        [InlineKeyboardButton(text="📅 Ежедневный Бонус (🔥 Streak)", callback_data="eco_daily")],
         [InlineKeyboardButton(text="🎮 Игры и Развлечения", callback_data="cat_games")],
         [InlineKeyboardButton(text="💼 Заработок и Финансы", callback_data="cat_income")],
         [InlineKeyboardButton(text="🤝 Социальное", callback_data="cat_social")]

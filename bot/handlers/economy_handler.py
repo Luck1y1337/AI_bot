@@ -50,27 +50,53 @@ def get_start_of_day() -> float:
 async def cb_eco_daily(callback: CallbackQuery, db: Database):
     user = await db.get_user(callback.from_user.id)
     now = time.time()
-    
-    # Check last daily bonus in transactions to prevent race conditions
+
     async with db._conn.execute('SELECT timestamp FROM transactions WHERE sender_id = ? AND action_type = ? ORDER BY timestamp DESC LIMIT 1', (user.id, "daily_bonus")) as cursor:
         last_daily = await cursor.fetchone()
-        
+
     if last_daily and (now - last_daily[0] < 86400):
         remaining = 86400 - (now - last_daily[0])
         from utils.time_utils import format_time_remaining
         await callback.answer(f"Вы уже получали бонус! Возвращайтесь через {format_time_remaining(now + remaining)}.", show_alert=True)
         return
-        
-    reward = random.randint(300, 700)
-    
-    # Add transaction as an atomic lock
+
+    # Streak logic
+    from datetime import date, timedelta
+    today = date.today().isoformat()
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+
+    if user.last_streak_date == yesterday:
+        user.streak_count += 1
+    elif user.last_streak_date != today:
+        user.streak_count = 1
+    user.last_streak_date = today
+
+    streak = user.streak_count
+    if streak >= 30:
+        multiplier = 3.0
+    elif streak >= 14:
+        multiplier = 2.5
+    elif streak >= 7:
+        multiplier = 2.0
+    elif streak >= 3:
+        multiplier = 1.5
+    else:
+        multiplier = 1.0
+
+    base_reward = random.randint(300, 700)
+    reward = int(base_reward * multiplier)
+
     await db.add_transaction(user.id, 0, reward, "daily_bonus")
-    
+
     user.last_daily_time = now
     await db.update_user(user)
     await db.add_coins(user.id, reward)
-    
-    await callback.message.edit_text(f"🎁 Вы получили ежедневный бонус: **{reward} 🪙**!", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад в Меню", callback_data="back_to_main_eco")]]))
+
+    streak_text = f"\n🔥 Streak: **{streak}** дн. (x{multiplier})" if streak > 1 else ""
+    await callback.message.edit_text(
+        f"🎁 Ежедневный бонус: **{reward} 🪙**!{streak_text}",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад в Меню", callback_data="back_to_main_eco")]])
+    )
     await callback.answer("Бонус получен!")
 
 @router.callback_query(F.data == "eco_contracts")
