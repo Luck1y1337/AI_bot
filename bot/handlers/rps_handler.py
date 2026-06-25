@@ -170,6 +170,11 @@ async def cb_rps_pick(callback: CallbackQuery, db: Database):
             await db.add_coins(u2, win_amount)
             await db.add_transaction(u1, u2, win_amount, "rps_win")
             
+        # Clean up finished lobbies to prevent memory leak
+        finished = [k for k, v in RPS_LOBBIES.items() if v["status"] == "finished"]
+        for k in finished:
+            del RPS_LOBBIES[k]
+
         active_lobbies = [k for k, v in RPS_LOBBIES.items() if v["status"] == "waiting"]
         await callback.message.edit_text(text, reply_markup=get_rps_main_kb(active_lobbies))
     else:

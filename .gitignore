@@ -4,44 +4,49 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
 *.egg-info/
-.installed.cfg
 *.egg
+dist/
+build/
 
 # Virtual Environment
 venv/
 .venv/
 env/
 
-# Environment Variables
+# Environment Variables (NEVER commit secrets)
 .env
 .env.local
+.env.production
 
 # Database
 data/*.db
+data/*.db-shm
+data/*.db-wal
 data/*.sqlite3
+data/long_term.json
 
 # Logs and Caches
 logs/
 cache/
+
+# Generated media
+media/tts_output/
 
 # IDEs
 .idea/
 .vscode/
 *.swp
 *.swo
+*.code-workspace
 
-# MacOS
+# OS
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# Dev analysis (local only)
+.dev/
+.agents/
+PROJECT.md
+analysis_report.md

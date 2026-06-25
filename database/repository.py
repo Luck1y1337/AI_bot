@@ -204,103 +204,46 @@ class Database:
             CREATE INDEX IF NOT EXISTS idx_clan_members_clan_id ON clan_members(clan_id);
         ''')
         
-        # Schema migrations
-        try:
-            await self._conn.execute('ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 0')
-        except Exception:
-            pass
-            
-        try:
-            await self._conn.execute('ALTER TABLE clans ADD COLUMN base_level INTEGER DEFAULT 1')
-        except Exception:
-            pass
-            
-        try:
-            await self._conn.execute('ALTER TABLE clans ADD COLUMN war_wins INTEGER DEFAULT 0')
-        except Exception:
-            pass
-            
-        try:
-            await self._conn.execute('ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT 0')
-        except Exception:
-            pass
-            
-        try:
-            await self._conn.execute('ALTER TABLE users ADD COLUMN custom_prompt TEXT DEFAULT ""')
-        except Exception:
-            pass
-            
-        try:
-            await self._conn.execute('ALTER TABLE clans ADD COLUMN base_level INTEGER DEFAULT 1')
-        except Exception:
-            pass
-            
-        try:
-            await self._conn.execute('''
-            CREATE TABLE IF NOT EXISTS houses (
+        # Schema migrations (each runs once, silently skipped if column/table already exists)
+        migrations = [
+            'ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 0',
+            'ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT 0',
+            'ALTER TABLE users ADD COLUMN custom_prompt TEXT DEFAULT ""',
+            'ALTER TABLE users ADD COLUMN last_daily_time REAL DEFAULT 0',
+            'ALTER TABLE users ADD COLUMN profile_frame TEXT DEFAULT "default"',
+            'ALTER TABLE users ADD COLUMN tutorial_done BOOLEAN DEFAULT 0',
+            'ALTER TABLE users ADD COLUMN username TEXT DEFAULT ""',
+            'ALTER TABLE clans ADD COLUMN base_level INTEGER DEFAULT 1',
+            'ALTER TABLE clans ADD COLUMN war_wins INTEGER DEFAULT 0',
+            'ALTER TABLE inventory ADD COLUMN amount INTEGER DEFAULT 1',
+        ]
+        for sql in migrations:
+            try:
+                await self._conn.execute(sql)
+            except Exception:
+                pass
+
+        extra_tables = [
+            '''CREATE TABLE IF NOT EXISTS houses (
                 marriage_id_1 INTEGER,
                 marriage_id_2 INTEGER,
                 level INTEGER DEFAULT 1,
                 furniture_points INTEGER DEFAULT 0,
                 PRIMARY KEY (marriage_id_1, marriage_id_2)
-            )
-            ''')
-        except Exception:
-            pass
-
-        try:
-            await self._conn.execute('''
-            CREATE TABLE IF NOT EXISTS bounties (
+            )''',
+            '''CREATE TABLE IF NOT EXISTS bounties (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 target_user_id INTEGER,
                 issuer_id INTEGER,
                 bounty_amount INTEGER
-            )
-            ''')
-        except Exception:
-            pass
-            
-        try:
-            await self._conn.execute('ALTER TABLE inventory ADD COLUMN amount INTEGER DEFAULT 1')
-        except Exception:
-            pass
-            
-        try:
-            await self._conn.execute('ALTER TABLE users ADD COLUMN last_daily_time REAL DEFAULT 0')
-        except Exception:
-            pass
-            
-        try:
-            await self._conn.execute('ALTER TABLE users ADD COLUMN profile_frame TEXT DEFAULT "default"')
-        except Exception:
-            pass
-            
-        try:
-            await self._conn.execute('ALTER TABLE users ADD COLUMN tutorial_done BOOLEAN DEFAULT 0')
-        except Exception:
-            pass
-            
-        try:
-            await self._conn.execute('''
-            CREATE TABLE IF NOT EXISTS crypto_market (
-                coin_name TEXT PRIMARY KEY,
-                current_price INTEGER,
-                last_updated REAL
-            )
-            ''')
-        except Exception:
-            pass
-            
-        try:
-            await self._conn.execute('ALTER TABLE users ADD COLUMN profile_frame TEXT DEFAULT "default"')
-        except Exception:
-            pass
-            
-        try:
-            await self._conn.execute('ALTER TABLE users ADD COLUMN username TEXT DEFAULT ""')
-        except Exception:
-            pass
-            
+            )''',
+        ]
+        for sql in extra_tables:
+            try:
+                await self._conn.execute(sql)
+            except Exception:
+                pass
+
         await self._conn.commit()
 
     async def get_setting(self, key: str, default: str = None) -> str:
@@ -410,7 +353,7 @@ class Database:
             return [Achievement(*row) for row in rows]
 
     async def get_top_users_by_xp(self, limit: int = 10) -> List[User]:
-        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username FROM users ORDER BY xp DESC LIMIT ?', (limit,)) as cursor:
+        async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip, profile_frame, tutorial_done FROM users ORDER BY xp DESC LIMIT ?', (limit,)) as cursor:
             rows = await cursor.fetchall()
             return [User(*row) for row in rows]
 
@@ -541,7 +484,20 @@ class Database:
             await self.update_contract_progress(c_id, new_progress, False)
 
     async def get_daily_activity(self) -> dict:
-        return {f"Day {i}": i * 10 for i in range(1, 15)}
+        from datetime import datetime, timedelta
+        result = {}
+        for i in range(13, -1, -1):
+            day = datetime.now() - timedelta(days=i)
+            day_start = day.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+            day_end = day_start + 86400
+            async with self._conn.execute(
+                'SELECT COUNT(*) FROM transactions WHERE timestamp >= ? AND timestamp < ?',
+                (day_start, day_end)
+            ) as cursor:
+                row = await cursor.fetchone()
+                label = day.strftime('%d.%m')
+                result[label] = row[0] if row else 0
+        return result
 
     # --- Pets (Tamagotchi) ---
     async def get_user_pets(self, user_id: int) -> List[tuple]:

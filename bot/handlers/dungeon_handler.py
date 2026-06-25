@@ -27,7 +27,7 @@ async def cb_dungeon_menu(callback: CallbackQuery):
 
 @router.callback_query(F.data == "dungeon_enter_forest")
 async def cb_dungeon_enter(callback: CallbackQuery, db: Database):
-    user_id = callback.fromuser.id if hasattr(callback, 'fromuser') else callback.from_user.id
+    user_id = callback.from_user.id
     
     # Check cooldown
     user = await db.get_user(user_id)
@@ -50,10 +50,10 @@ async def cb_dungeon_action(callback: CallbackQuery, db: Database):
     action = callback.data.split("_")[2]
     user_id = callback.from_user.id
     
-    # Check inventory
+    # Check inventory: tuple is (id, user_id, item_type, item_value)
     inv = await db.get_user_inventory(user_id)
-    has_sword = any(item[0] == "sword" and item[1] > 0 for item in inv)
-    has_armor = any(item[0] == "armor" and item[1] > 0 for item in inv)
+    has_sword = any(item[2] == "sword" for item in inv)
+    has_armor = any(item[2] == "armor" for item in inv)
     
     base_win_chance = 30
     if has_sword: base_win_chance += 30

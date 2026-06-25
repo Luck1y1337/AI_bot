@@ -134,6 +134,7 @@ async def cb_trade_accept(callback: CallbackQuery, db: Database, bot: Bot):
     await callback.message.edit_text(f"✅ Вы успешно получили {trade['amount']}x {trade['item']} от {trade['from']}!")
     try: await bot.send_message(trade["from"], f"✅ Трейд #{trade_id} завершен! Игрок {trade['to']} принял вещи.")
     except: pass
+    del ACTIVE_TRADES[trade_id]
 
 @router.callback_query(F.data.startswith("trade_decline_"))
 async def cb_trade_decline(callback: CallbackQuery, bot: Bot):
@@ -147,6 +148,7 @@ async def cb_trade_decline(callback: CallbackQuery, bot: Bot):
     await callback.message.edit_text("❌ Вы отклонили трейд.")
     try: await bot.send_message(trade["from"], f"❌ Игрок {trade['to']} отклонил трейд #{trade_id}.")
     except: pass
+    del ACTIVE_TRADES[trade_id]
 
 @router.callback_query(F.data == "trade_cancel")
 async def cb_trade_cancel(callback: CallbackQuery, state: FSMContext):

@@ -57,10 +57,14 @@ async def cb_bm_buy(callback: CallbackQuery, db: Database):
     target_item["stock"] -= 1
     
     if target_item["type"] == "gacha_epic":
-        for _ in range(5): # Give 5 random cards, assuming gacha add_user_card exists.
-            # In a real app we'd pick random cards from DB. We'll just add fake items to inventory for now.
-            pass
-        await db.add_inventory_amount(user_id, "gacha_epic_pack", 1)
+        cards = await db.get_all_cards()
+        if cards:
+            import random as _rng
+            epic_and_above = [c for c in cards if c[2] in ("Epic", "Legendary")]
+            pool = epic_and_above if epic_and_above else cards
+            for _ in range(5):
+                card = _rng.choice(pool)
+                await db.add_user_card(user_id, card[0])
         
     elif target_item["type"] == "pet_mythic":
         await db.add_inventory_amount(user_id, "pet_egg_mythic", 1)

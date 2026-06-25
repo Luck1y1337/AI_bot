@@ -165,9 +165,13 @@ async def process_photo(message: Message, db: Database, mistral: MistralClient, 
     user = await db.get_user(message.from_user.id)
     photo = message.photo[-1]
     file = await bot.get_file(photo.file_id)
-    url = f"https://api.telegram.org/file/bot{bot.token}/{file.file_path}"
-    
-    desc = await mistral.analyze_image(url)
+    file_bytes = io.BytesIO()
+    await bot.download_file(file.file_path, file_bytes)
+    import base64
+    b64_image = base64.b64encode(file_bytes.getvalue()).decode()
+    data_url = f"data:image/jpeg;base64,{b64_image}"
+
+    desc = await mistral.analyze_image(data_url)
     user_prompt = f"Отреагируй на эту картинку, которую я тебе отправил. Вот что ты видишь: {desc}"
     
     # Memory update

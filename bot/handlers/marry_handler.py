@@ -16,7 +16,7 @@ def get_house_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
 @router.callback_query(F.data == "eco_marry")
-async def cb_eco_marry(callback: CallbackQuery, db: Database, state: FSMContext):
+async def cb_eco_marry(callback: CallbackQuery, db: Database, state: FSMContext = None):
     marriage = await db.get_marriage(callback.from_user.id)
     if marriage:
         u1, u2 = marriage[0], marriage[1]
@@ -72,8 +72,8 @@ async def cb_house_buy_furniture(callback: CallbackQuery, db: Database):
     await db.update_marriage_house(u1, u2, level, fp)
     await db.add_transaction(user_id, 0, 1000, "buy_furniture")
     
-    # Re-render
-    await cb_eco_marry(callback, db, None)
+    # Re-render (marriage already exists, so state is not needed)
+    await cb_eco_marry(callback, db, state=None)
 
 @router.callback_query(F.data == "house_divorce")
 async def cb_house_divorce(callback: CallbackQuery, db: Database):

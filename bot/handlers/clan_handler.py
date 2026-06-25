@@ -408,7 +408,8 @@ async def process_clan_kick(message: Message, state: FSMContext, db: Database):
     if not user_clan or user_clan[6] != 'owner':
         await state.clear()
         return
-        
+
+    c_id = user_clan[0]
     await db.remove_clan_member(c_id, target_id)
     await message.answer(f"✅ Участник {target_id} выгнан из клана.")
     try:

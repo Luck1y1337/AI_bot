@@ -163,27 +163,6 @@ async def cb_claim_contract(callback: CallbackQuery, db: Database):
     await callback.answer(f"Награда получена: {reward_coins} 🪙 и {reward_xp} XP!{material_dropped}", show_alert=True)
     await cb_eco_contracts(callback, db)
 
-# --- Ежедневный Бонус ---
-@router.callback_query(F.data == "eco_daily")
-async def cb_eco_daily(callback: CallbackQuery, db: Database):
-    user = await db.get_user(callback.from_user.id)
-    now = time.time()
-    if now - user.last_daily_time >= 86400:
-        user.coins += 50
-        user.xp += 10
-        user.last_daily_time = now
-        await db.update_user(user)
-        await db.add_transaction(0, user.id, 50, "daily_bonus")
-        
-        from utils.quests import increment_quest_progress
-        await increment_quest_progress(user.id, "daily_bonus", 1, db)
-        
-        await callback.message.edit_text("Ура! Ты получил(а) ежедневный бонус:\n🪙 50 MahiroCoins\n✨ 10 XP\n\nПриходи завтра!", reply_markup=get_economy_menu())
-    else:
-        left = int(86400 - (now - user.last_daily_time))
-        hours = left // 3600
-        mins = (left % 3600) // 60
-        await callback.answer(f"Бонус будет доступен через {hours} ч. {mins} мин.", show_alert=True)
 
 # --- Гача ---
 @router.callback_query(F.data == "eco_gacha")
@@ -274,13 +253,13 @@ async def process_pay_amount(message: Message, db: Database, state: FSMContext, 
         
     tax = int(amount * 0.05)
     transfer_amount = amount - tax
-        
+
     await db.add_coins(target_id, transfer_amount)
     await db.add_transaction(message.from_user.id, target_id, amount, "user_transfer")
-    
-    await message.answer(f"Успешно переведено {amount} 🪙 пользователю {target_id}!")
+
+    await message.answer(f"Успешно переведено {transfer_amount} 🪙 пользователю {target_id}! (Налог: {tax} 🪙)")
     try:
-        await bot.send_message(target_id, f"💸 Вам пришел перевод: {amount} 🪙 от пользователя {message.from_user.id}!")
+        await bot.send_message(target_id, f"💸 Вам пришел перевод: {transfer_amount} 🪙 от пользователя {message.from_user.id}!")
     except:
         pass
         
@@ -340,9 +319,10 @@ async def cb_collect_biz(callback: CallbackQuery, db: Database):
         
         hourly_rate = 10 if biz_type == 'manga' else 50
         profit = int(hours_passed * hourly_rate)
-        
+        total_profit += profit
+
         await db.update_business_collect_time(biz_id, now)
-        
+
         from utils.quests import increment_quest_progress
         await increment_quest_progress(callback.from_user.id, "collect_biz", 1, db)
             
