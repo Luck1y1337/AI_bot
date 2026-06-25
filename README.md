@@ -1,61 +1,169 @@
 <div align="center">
-  <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMjRtdHczMXQxeGRuYzhxaHJhOGc1aGxhdDhpOHYxd3lndjJrczBqMiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LAKIIRqtM1dqE/giphy.gif" width="200" alt="Mahiro">
 
-  # Mahiro Bot
+  <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMjRtdHczMXQxeGRuYzhxaHJhOGc1aGxhdDhpOHYxd3lndjJrczBqMiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LAKIIRqtM1dqE/giphy.gif" width="180">
 
-  **Telegram-бот с ИИ-персонажем, игровой экономикой и социальными механиками**
+  # Mahiro Bot &mdash; AI Telegram RPG
 
-  [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776ab?logo=python&logoColor=white)](https://python.org)
-  [![Aiogram 3](https://img.shields.io/badge/Aiogram-3.x-blueviolet)](https://aiogram.dev/)
-  [![Mistral AI](https://img.shields.io/badge/Mistral_AI-Pixtral-ff6f00)](https://mistral.ai/)
-  [![SQLite](https://img.shields.io/badge/SQLite-aiosqlite-003b57)](https://www.sqlite.org/)
+  Ролевой Telegram-бот с характером аниме-персонажа, полноценной экономикой,<br>PvP-играми, кланами и социальными механиками.
+
+  [![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
+  [![Aiogram](https://img.shields.io/badge/Aiogram-3.x-7B68EE?style=flat-square)](https://aiogram.dev/)
+  [![Mistral AI](https://img.shields.io/badge/Mistral_AI-ff6f00?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJ3aGl0ZSI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz48L3N2Zz4=&logoColor=white)](https://mistral.ai/)
+  [![SQLite](https://img.shields.io/badge/SQLite-003b57?style=flat-square&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+  [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)](#docker)
+  [![License](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](LICENSE)
+
+  **7 600+ строк** &bull; **58 модулей** &bull; **25 хендлеров** &bull; **23 таблицы БД**
+
 </div>
 
 ---
 
-## О проекте
+## Что это такое
 
-Ролевой бот от лица **Махиро Ояма** из аниме *"Onimai: I'm Now Your Sister!"*. Бот обладает собственным настроением, памятью, системой доверия и проработанной экономикой с PvP-элементами.
+**Mahiro Bot** — виртуальный собеседник от лица **Махиро Ояма** из аниме *"Onimai: I'm Now Your Sister!"*. Это не обычный чат-бот — у Махиро есть характер, настроение, память о ваших разговорах и целая вселенная с экономикой, PvP-играми, кланами и рейдами.
 
-**Ключевые особенности:**
-- Диалоги через Mistral AI с контекстом и памятью
-- Анализ изображений (Pixtral Vision)
-- Полная экономическая система (валюта, бизнесы, банк, криптобиржа)
-- PvP-игры (казино, камень-ножницы-бумага, рулетка)
-- Кланы с войнами и рейд-боссами
-- Гача-система с карточками и глобальным рынком
-- Браки, питомцы (тамагочи), подземелья
-- Админ-панель с аналитикой и веб-дашбордом
+Бот полностью управляется через **Inline-кнопки** — никаких текстовых команд для навигации.
+
+<details>
+<summary><b>Скриншоты интерфейса</b> (нажмите, чтобы развернуть)</summary>
+<br>
+
+> Скриншоты можно добавить сюда: профиль, меню экономики, гача, клан и т.д.
+
+</details>
+
+---
+
+## Возможности
+
+### 🧠 Искусственный Интеллект
+
+| Функция | Описание |
+|---------|----------|
+| **Ролевые диалоги** | Махиро отвечает в характере — стеснительная, саркастичная, постепенно открывается при высоком доверии |
+| **Двухуровневая память** | Краткосрочная (контекст диалога) + долгосрочная (запоминает ваше имя, интересы) |
+| **Система доверия** | 0–100%, влияет на тон ответов, доступные реплики и поведение |
+| **Динамическое настроение** | 7 состояний: happy, sad, annoyed, excited, tired, sleepy, normal |
+| **Анализ фото** | Отправьте изображение — Махиро опишет и прокомментирует его (Pixtral Vision) |
+| **Голосовые сообщения** | TTS-озвучка ответов через gTTS + ffmpeg |
+| **Кастомная ИИ-роль** | VIP-пользователи могут задать боту свой промпт |
+
+### 💰 Экономика
+
+```
+MahiroCoins (🪙) — основная валюта    XP (✨) — опыт за активность
+```
+
+| Система | Как работает |
+|---------|-------------|
+| **Ежедневный бонус** | 300–700 🪙 раз в 24 часа |
+| **Бизнесы** | Купи «Магазин Манги» или «Аркаду» — получай пассивный доход до 600 🪙/день |
+| **Банк** | Вклады (+2%/день), кредиты (500 🪙, возврат +10%) |
+| **Криптобиржа** | Торговля MHR — курс меняется каждый час, покупай дешево, продавай дорого |
+| **Контракты** | 3 ежедневных квеста → 500 🪙 + 50 XP за каждый |
+| **Магазин** | Энергетики, рамен, титулы, VIP ИИ-роль |
+| **Переводы** | P2P с 5% налогом |
+| **Донаты** | Telegram Stars → MahiroCoins |
+
+### 🎮 Игры
+
+| Игра | Тип | Механика |
+|------|-----|----------|
+| **Казино (Coinflip)** | PvP | Вызови игрока, поставь коины, 50/50 |
+| **Камень-Ножницы-Бумага** | PvP | Лобби на 500/2000 🪙 |
+| **Рулетка** | PvP | Русская рулетка на коины |
+| **Гача** | PvE | Карточки 4 редкостей — Common (70%), Rare (20%), Epic (9%), Legendary (1%) |
+| **Подземелья** | PvE | Экспедиции, шанс зависит от крафтового снаряжения (макс 3/день) |
+| **Рейд на Босса** | Co-op | Глобальный босс с общим HP, атака раз в час |
+| **Викторина** | Solo | Аниме-квиз за XP и коины |
+| **Игры с ИИ** | Solo | Угадай число, словесные игры с Mistral |
+
+### 🐾 Питомцы (Тамагочи)
+
+Приюти слайма, корми, играй — он растёт и эволюционирует:
+
+```
+💧 Слайм  →  🗡️ Слайм-Рыцарь  →  👑 Король Слаймов
+ (Ур.1)        (Ур.10)              (Ур.20)
+```
+
+Сытый питомец даёт бонус к урону в рейдах. Голодный — не даёт ничего.
+
+### 🏰 Кланы
+
+| Функция | Описание |
+|---------|----------|
+| **Создание** | 10 000 🪙, до 15+ участников (зависит от уровня базы) |
+| **Казна** | Донаты от участников, расходуется на боссов и улучшения |
+| **Клановые войны** | 24-часовой PvP — атакуй раз в час, урон зависит от уровня базы |
+| **Клановый босс** | Рейд для клана, HP масштабируется с уровнем, награда в казну |
+| **Топ кланов** | Рейтинг по XP |
+
+### 🤝 Социальное
+
+| Функция | Описание |
+|---------|----------|
+| **Браки** | Предложение (5000 🪙), совместный дом, бонус +10% к бизнесам |
+| **Совместный дом** | Покупай мебель → повышай уровень дома → больше бонусов |
+| **Репутация (+rep)** | Раз в день, +50 XP получателю |
+| **Награды за голову** | Назначь bounty на игрока — забирается при победе в казино |
+| **Трейд** | Прямой обмен предметами с подтверждением |
+| **Глобальный рынок** | P2P покупка/продажа карточек |
+| **Чёрный рынок** | Редкие предметы, обновляется раз в день, ограниченный stock |
+
+### ⚒️ Крафт
+
+Добывай ресурсы → крафти снаряжение → побеждай в подземельях:
+
+| Предмет | Рецепт | Эффект |
+|---------|--------|--------|
+| 🗡️ Меч | 10 🪵 + 5 🪨 | +30% шанс победы в подземелье |
+| 🛡️ Броня | 20 🪵 + 10 🪨 | +20% шанс победы в подземелье |
+| 💍 Кольцо | 50 🪨 + 1000 🪙 | Для предложения руки |
+
+### 👑 Админ-панель
+
+Полное управление ботом прямо из Telegram:
+
+- **Модерация** — бан/разбан, вайтлист, блэклист
+- **Экономика** — изменение баланса коинов/XP любому юзеру
+- **Контент** — создание промокодов, рассылка, управление рынком
+- **Мониторинг** — CPU/RAM/Disk, логи, экспорт данных (CSV/JSON/ZIP)
+- **Настройки** — maintenance-режим, reload конфига без рестарта
 
 ---
 
 ## Быстрый старт
 
 ### Требования
-- Python 3.11+
-- Токен Telegram бота ([@BotFather](https://t.me/BotFather))
-- API-ключ [Mistral AI](https://mistral.ai/)
+
+- **Python 3.11+**
+- Токен Telegram бота — [@BotFather](https://t.me/BotFather)
+- API-ключ — [Mistral AI Console](https://console.mistral.ai/)
+- `ffmpeg` — для голосовых сообщений (опционально)
 
 ### Установка
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/mahiro-bot.git
-cd mahiro-bot
+git clone https://github.com/Luck1y1337/AI_bot.git
+cd AI_bot
 pip install -r requirements.txt
 ```
 
-### Настройка
+### Конфигурация
 
 ```bash
 cp .env.example .env
 ```
 
-Заполните `.env`:
+Отредактируйте `.env`:
+
 ```env
-TELEGRAM_TOKEN=ваш_токен
-MISTRAL_API_KEY=ваш_ключ
+TELEGRAM_TOKEN=ваш_токен_от_botfather
+MISTRAL_API_KEY=ваш_ключ_mistral
 ADMIN_USER_IDS=123456789
-ADMIN_PANEL_TOKEN=секретный_токен
+ADMIN_PANEL_TOKEN=любой_секретный_токен
 ENABLE_WHITELIST=false
 ```
 
@@ -65,7 +173,7 @@ ENABLE_WHITELIST=false
 python main.py
 ```
 
-При первом запуске автоматически создастся БД и необходимые папки.
+> При первом запуске автоматически создаются папки `data/`, `cache/`, `logs/` и база данных.
 
 ### Docker
 
@@ -73,63 +181,181 @@ python main.py
 docker-compose up -d
 ```
 
+```yaml
+# docker-compose.yml — данные, логи и кэш монтируются как volumes
+services:
+  bot:
+    build: .
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./cache:/app/cache
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+```
+
 ---
 
-## Структура проекта
+## Архитектура
 
 ```
 mahiro_bot/
-├── main.py              # Точка входа
-├── config/              # Настройки (.env)
-├── database/            # Модели и Repository (SQLite)
-├── ai/                  # Mistral API клиент, промпты
-├── memory/              # Краткосрочная и долгосрочная память
+│
+├── main.py                  # Точка входа, планировщик задач
+├── config/settings.py       # Pydantic-валидация .env
+│
+├── ai/                      # Интеграция с Mistral AI
+│   ├── mistral_client.py    #   HTTP-клиент (retry, vision)
+│   ├── prompt_builder.py    #   Динамический системный промпт
+│   └── triggers.py          #   Быстрые ответы без API
+│
+├── database/
+│   ├── models.py            # Dataclass-модели
+│   └── repository.py        # Repository pattern (23 таблицы)
+│
+├── memory/
+│   ├── short_term.py        # Контекст диалога (RAM, deque)
+│   ├── long_term.py         # Факты о пользователе (JSON)
+│   └── memory_manager.py    # Извлечение фактов из текста
+│
 ├── bot/
-│   ├── handlers/        # 25 обработчиков команд
-│   ├── keyboards/       # Клавиатуры (Reply + Inline)
-│   ├── middlewares/      # Антиспам, вайтлист, логирование
-│   └── fsm/             # Состояния FSM
-├── media/               # TTS, графики, изображения
-├── utils/               # Достижения, форматирование, квесты
-└── web/                 # Веб-дашборд (FastAPI)
+│   ├── handlers/            # 25 обработчиков
+│   │   ├── main_handler     #   /start, /stats, диалоги, фото
+│   │   ├── economy_handler  #   Бонусы, казино, банк, магазин
+│   │   ├── clan_handler     #   Кланы, войны, боссы
+│   │   ├── gacha_handler    #   Гача-система
+│   │   ├── pet_handler      #   Тамагочи
+│   │   ├── market_handler   #   P2P рынок
+│   │   ├── admin_handler    #   Админ-панель
+│   │   └── ...              #   Ещё 18 модулей
+│   ├── keyboards/           # Reply + Inline клавиатуры
+│   ├── middlewares/          # AntiSpam → Maintenance → Whitelist → Logging
+│   └── fsm/states.py        # FSM-состояния
+│
+├── media/                   # TTS, профили (Pillow), графики
+├── utils/                   # Достижения, квесты, форматирование
+└── web/app.py               # FastAPI дашборд (статистика, логи)
 ```
 
----
+### Поток обработки сообщения
 
-## Команды
-
-| Команда | Описание |
-|---------|----------|
-| `/start` | Начать диалог и пройти туториал |
-| `/stats` | Профиль: коины, XP, достижения |
-| `/mood` | Текущее настроение и доверие |
-| `/voice` | Озвучка текста голосом |
-| `/quiz` | Аниме-викторина |
-| `/remind` | Установить напоминание |
-| `/support` | Написать в поддержку |
-| `/donate` | Пополнить баланс (Telegram Stars) |
-| `/promo` | Активировать промокод |
-| `/admin` | Админ-панель |
-
-Основной функционал доступен через **Inline-кнопки** в меню бота.
+```
+Telegram → Dispatcher → Middleware Chain → Router → Handler
+                           │                          │
+                    AntiSpam (2с)              ┌──────┴──────┐
+                    Maintenance               Database    Mistral AI
+                    Whitelist                 (SQLite)    (API)
+                    Logging                      │           │
+                                              Memory     Response
+                                           (RAM + JSON)
+```
 
 ---
 
 ## Стек технологий
 
-| Компонент | Технология |
-|-----------|-----------|
-| Бот-фреймворк | aiogram 3.x |
-| ИИ | Mistral AI (mistral-small + pixtral-12b) |
-| База данных | SQLite (aiosqlite, WAL) |
-| Веб-панель | FastAPI + Jinja2 |
-| Планировщик | APScheduler |
-| Изображения | Pillow, matplotlib |
-| TTS | gTTS |
-| Деплой | Docker, Railway |
+| Слой | Технология | Зачем |
+|------|-----------|-------|
+| Фреймворк | **aiogram 3.x** | Асинхронный Telegram Bot API |
+| ИИ (текст) | **Mistral Small** | Ролевые диалоги |
+| ИИ (зрение) | **Pixtral 12B** | Анализ изображений |
+| База данных | **SQLite + aiosqlite** | WAL-режим, 23 таблицы, индексы |
+| Веб | **FastAPI + Jinja2** | Админ-дашборд, healthcheck |
+| Планировщик | **APScheduler** | Напоминания, крипта, бэкапы |
+| Изображения | **Pillow** | Генерация профильных карточек |
+| Графики | **matplotlib** | Аналитика активности |
+| TTS | **gTTS + ffmpeg** | Голосовые сообщения |
+| Деплой | **Docker / Railway** | Контейнеризация |
+
+---
+
+## Команды
+
+<details>
+<summary><b>Пользовательские команды</b></summary>
+
+| Команда | Описание |
+|---------|----------|
+| `/start` | Начать диалог, пройти туториал (+500 🪙 стартовых) |
+| `/stats` | Профиль с аватаром, статистикой и достижениями |
+| `/mood` | Текущее настроение и уровень доверия |
+| `/reset` | Сброс краткосрочной памяти ИИ |
+| `/voice` | Озвучка текста голосом Махиро |
+| `/quiz` | Аниме-викторина |
+| `/remind` | Установить напоминание |
+| `/reminders` | Список активных напоминаний |
+| `/leaderboard` | Топ-10 игроков по XP |
+| `/gift` | Магазин подарков |
+| `/donate` | Пополнение через Telegram Stars |
+| `/promo` | Активировать промокод |
+| `/support` | Написать тикет администратору |
+
+</details>
+
+<details>
+<summary><b>Админские команды</b></summary>
+
+| Команда | Описание |
+|---------|----------|
+| `/admin` | Открыть админ-панель |
+| `/addpromo CODE 100 50 10` | Создать промокод (коины, XP, кол-во) |
+| `/ban ID` | Заблокировать пользователя |
+| `/unban ID` | Разблокировать |
+| `/maintenance` | Вкл/выкл режим обслуживания |
+| `/system` | Нагрузка сервера (CPU, RAM, Disk) |
+| `/logs` | Скачать файл логов |
+| `/reload_config` | Перезагрузить .env без рестарта |
+
+</details>
+
+---
+
+## Middleware Pipeline
+
+Каждое сообщение проходит через 4 слоя до обработчика:
+
+```
+1. LoggingMiddleware      — логирование события
+2. MaintenanceMiddleware  — блокировка при тех. работах
+3. WhitelistMiddleware    — проверка доступа + заявки
+4. AntiSpamMiddleware     — rate limit (2с кулдаун, мут 60с при флуде)
+```
+
+---
+
+## Переменные окружения
+
+| Переменная | Обязательна | Описание |
+|-----------|:-----------:|----------|
+| `TELEGRAM_TOKEN` | ✅ | Токен бота от @BotFather |
+| `MISTRAL_API_KEY` | ✅ | API-ключ Mistral AI |
+| `ADMIN_USER_IDS` | ✅ | ID администраторов (через запятую) |
+| `ADMIN_PANEL_TOKEN` | ✅ | JWT-секрет для веб-панели |
+| `ENABLE_WHITELIST` | | Режим белого списка (`true`/`false`) |
+| `WHITELIST_USER_IDS` | | Предодобренные ID |
+| `BLACKLIST_USER_IDS` | | Заблокированные ID |
+
+---
+
+## Roadmap
+
+- [ ] Система уровней (Level = XP / 100)
+- [ ] Streak-бонусы за серию ежедневных входов
+- [ ] Реферальная система
+- [ ] Турниры с таблицей результатов
+- [ ] Сезонный рейтинг с наградами
+- [ ] Telegram Mini App (WebApp)
 
 ---
 
 ## Лицензия
 
-MIT
+Распространяется под лицензией [MIT](LICENSE).
+
+---
+
+<div align="center">
+  <sub>Разработано с любовью к аниме и Python</sub>
+</div>
