@@ -20,6 +20,10 @@ def get_crypto_kb() -> InlineKeyboardMarkup:
 
 @router.callback_query(F.data == "eco_crypto")
 async def cb_crypto_market(callback: CallbackQuery, db: Database):
+    from utils.levels import get_level
+    user = await db.get_user(callback.from_user.id)
+    if get_level(user.xp) < 5:
+        return await callback.answer("Криптобиржа доступна с 5 уровня!", show_alert=True)
     price_row = await db.get_crypto_price("mahiro_coin")
     if not price_row:
         price = 1000

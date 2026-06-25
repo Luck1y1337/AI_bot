@@ -18,6 +18,7 @@ class User:
     tutorial_done: bool = False
     streak_count: int = 0
     last_streak_date: str = ""
+    referred_by: int = 0
 
 @dataclass
 class Transaction:

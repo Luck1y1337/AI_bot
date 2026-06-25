@@ -312,8 +312,11 @@ async def cb_eco_businesses(callback: CallbackQuery, db: Database):
 
 @router.callback_query(F.data.startswith("buy_biz_"))
 async def cb_buy_biz(callback: CallbackQuery, db: Database):
+    from utils.levels import get_level
     biz_type = callback.data.split("_")[2]
     user = await db.get_user(callback.from_user.id)
+    if get_level(user.xp) < 3:
+        return await callback.answer("Бизнесы доступны с 3 уровня!", show_alert=True)
     cost = 500 if biz_type == 'manga' else 2000
     
     if user.coins < cost:
@@ -521,6 +524,10 @@ async def cb_bank_repay(callback: CallbackQuery, db: Database):
 # --- Казино PvP (Coinflip) ---
 @router.callback_query(F.data == "eco_casino")
 async def cb_eco_casino(callback: CallbackQuery, db: Database, state: FSMContext):
+    from utils.levels import get_level
+    user = await db.get_user(callback.from_user.id)
+    if get_level(user.xp) < 2:
+        return await callback.answer("Казино доступно с 2 уровня!", show_alert=True)
     users = await db.get_all_users()
     users = [u for u in users if u.id != callback.from_user.id]
     if not users:

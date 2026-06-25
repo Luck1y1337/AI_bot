@@ -31,6 +31,8 @@ async def cmd_cancel(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("❌ Действие отменено.", reply_markup=get_main_menu(message.from_user.id))
 
+REFERRAL_BONUS = 500
+
 @router.message(CommandStart(), StateFilter("*"))
 async def cmd_start(message: Message, db: Database, bot: Bot, state: FSMContext):
     await state.clear()
@@ -38,14 +40,30 @@ async def cmd_start(message: Message, db: Database, bot: Bot, state: FSMContext)
     if user.username != (message.from_user.username or ""):
         user.username = message.from_user.username or ""
         await db.update_user(user)
-        
+
     if user.message_count == 0:
         from utils.admin_alerts import notify_admins
         await notify_admins(bot, f"Новый пользователь начал использовать бота: {message.from_user.id} (@{message.from_user.username})")
-        
+
     if not user.tutorial_done:
         await db.add_coins(user.id, 500)
         await db.complete_tutorial(user.id)
+
+        # Referral: /start ref_12345
+        args = message.text.split()
+        if len(args) > 1 and args[1].startswith("ref_"):
+            try:
+                referrer_id = int(args[1].replace("ref_", ""))
+                if referrer_id != message.from_user.id:
+                    user.referred_by = referrer_id
+                    await db.update_user(user)
+                    await db.add_coins(referrer_id, REFERRAL_BONUS)
+                    await db.add_coins(user.id, REFERRAL_BONUS)
+                    try:
+                        await bot.send_message(referrer_id, f"🎉 Ваш друг присоединился по вашей ссылке! Вам начислено **{REFERRAL_BONUS} 🪙**!")
+                    except Exception: pass
+            except (ValueError, TypeError): pass
+
         tutorial_text = (
             "О, новенький! Добро пожаловать. Я Махиро. 🎀\n\n"
             "Давай я покажу тебе, как тут всё устроено. Я перевела тебе твой первый стартовый капитал: **500 🪙**!\n\n"
@@ -250,6 +268,18 @@ async def process_promo_code(message: Message, state: FSMContext, db: Database):
     
     await message.answer(f"🎉 Промокод активирован! Ты получил {coins} 🪙 и {xp} ✨ XP.")
     await state.clear()
+
+@router.message(F.text == "/invite")
+async def cmd_invite(message: Message, db: Database, bot: Bot):
+    bot_user = await bot.me()
+    ref_link = f"https://t.me/{bot_user.username}?start=ref_{message.from_user.id}"
+    ref_count = await db.get_referral_count(message.from_user.id)
+    text = (
+        f"🔗 **Твоя реферальная ссылка:**\n`{ref_link}`\n\n"
+        f"Поделись ссылкой с друзьями — вы оба получите **{REFERRAL_BONUS} 🪙**!\n\n"
+        f"👥 Приглашено друзей: **{ref_count}**"
+    )
+    await message.answer(text, parse_mode="Markdown")
 
 @router.message(F.text)
 async def process_message(message: Message, db: Database, mistral: MistralClient, memory: MemoryManager, bot: Bot):
