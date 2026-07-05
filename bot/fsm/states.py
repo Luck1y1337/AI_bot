@@ -48,6 +48,9 @@ class RemindStates(StatesGroup):
 class PromoStates(StatesGroup):
     waiting_for_code = State()
 
+class DonateStates(StatesGroup):
+    waiting_for_custom_amount = State()
+
 class ClanStates(StatesGroup):
     waiting_for_clan_name = State()
     waiting_for_donate = State()

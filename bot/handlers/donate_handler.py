@@ -1,11 +1,18 @@
 from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery, LabeledPrice, PreCheckoutQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.fsm.context import FSMContext
 from aiogram.utils.text_decorations import html_decoration
 from database.repository import Database
 from config.settings import get_settings
+from bot.fsm.states import DonateStates
 
 router = Router()
 settings = get_settings()
+
+# Custom-amount donations: how many coins per star, and the allowed star range.
+COINS_PER_STAR = 10
+MIN_STARS = 1
+MAX_STARS = 10000
 
 def _is_admin(user_id: int) -> bool:
     return user_id in settings.ADMIN_USER_IDS
@@ -14,7 +21,8 @@ def get_donate_kb() -> InlineKeyboardMarkup:
     kb = [
         [InlineKeyboardButton(text="🪙 500 MahiroCoins (⭐️ 50)", callback_data="buy_stars_50")],
         [InlineKeyboardButton(text="🪙 1500 MahiroCoins (⭐️ 100)", callback_data="buy_stars_100")],
-        [InlineKeyboardButton(text="💎 VIP-статус + 5000 🪙 (⭐️ 500)", callback_data="buy_stars_500")]
+        [InlineKeyboardButton(text="💎 VIP-статус + 5000 🪙 (⭐️ 500)", callback_data="buy_stars_500")],
+        [InlineKeyboardButton(text="✍️ Своя сумма (⭐️)", callback_data="buy_custom")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
@@ -57,6 +65,48 @@ async def process_buy_stars(callback: CallbackQuery, bot: Bot):
     )
     await callback.answer()
 
+@router.callback_query(F.data == "buy_custom")
+async def cb_buy_custom(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(DonateStates.waiting_for_custom_amount)
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Отмена", callback_data="donate_cancel")]])
+    await callback.message.answer(
+        f"✍️ Введите количество звёзд ⭐️ (от {MIN_STARS} до {MAX_STARS}).\n\n"
+        f"За каждую ⭐️ вы получите <b>{COINS_PER_STAR} 🪙</b>.",
+        reply_markup=kb,
+    )
+    await callback.answer()
+
+@router.callback_query(F.data == "donate_cancel")
+async def cb_donate_cancel(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.edit_text("Ок, отменили. Загляни в /donate, когда захочешь поддержать проект. 🌸")
+    await callback.answer()
+
+@router.message(DonateStates.waiting_for_custom_amount)
+async def process_custom_amount(message: Message, state: FSMContext, bot: Bot):
+    text = (message.text or "").strip()
+    if not text.isdigit():
+        await message.answer(f"Нужно число от {MIN_STARS} до {MAX_STARS}. Попробуй ещё раз или нажми Отмена.")
+        return
+    stars = int(text)
+    if stars < MIN_STARS or stars > MAX_STARS:
+        await message.answer(f"Сумма должна быть от {MIN_STARS} до {MAX_STARS} ⭐️. Попробуй ещё раз.")
+        return
+
+    await state.clear()
+    coins = stars * COINS_PER_STAR
+    title = f"{coins} MahiroCoins"
+    prices = [LabeledPrice(label=title, amount=stars)]
+    await bot.send_invoice(
+        chat_id=message.from_user.id,
+        title=title,
+        description=f"Пакет из {coins} монет за {stars} ⭐️ Telegram Stars.",
+        payload=f"buy_custom_{stars}",
+        provider_token="",
+        currency="XTR",
+        prices=prices,
+    )
+
 @router.pre_checkout_query()
 async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
     # Always answer True to proceed
@@ -84,6 +134,10 @@ async def process_successful_payment(message: Message, db: Database):
         user.is_vip = True
         user.xp += 1000
         reply = "🎉 ТЫ ЛУЧШИЙ! Спасибо за невероятную поддержку! Тебе начислен <b>VIP-статус</b> (теперь он будет отображаться в твоем профиле) и <b>5000 🪙 MahiroCoins</b>!"
+    elif payload.startswith('buy_custom_'):
+        coins_granted = int(payload.split('_')[2]) * COINS_PER_STAR
+        user.coins += coins_granted
+        reply = f"🎉 Спасибо за поддержку! Тебе начислено <b>{coins_granted} 🪙 MahiroCoins</b>!"
     else:
         return
 
