@@ -3,11 +3,12 @@ import logging
 import os
 import sys
 import time
+from logging.handlers import RotatingFileHandler
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.types import BotCommand, BotCommandScopeDefault, BotCommandScopeChat
+from aiogram.types import BotCommand, BotCommandScopeDefault, BotCommandScopeChat, ErrorEvent
 from aiogram.utils.text_decorations import html_decoration
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -26,11 +27,29 @@ from media.mood_images import create_placeholders
 
 os.makedirs("logs", exist_ok=True)
 
-logging.basicConfig(level=logging.INFO, 
+logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-                    handlers=[logging.FileHandler("logs/mahiro.log"), logging.StreamHandler(sys.stdout)])
+                    handlers=[
+                        # Rotate so logs/mahiro.log never grows without bound (5 MB x 3).
+                        RotatingFileHandler("logs/mahiro.log", maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"),
+                        logging.StreamHandler(sys.stdout),
+                    ])
 
 logger = logging.getLogger(__name__)
+
+async def on_error(event: ErrorEvent):
+    # Catch-all so an exception in any handler is logged and the user gets a
+    # soft reply instead of a silent hang.
+    logger.error("Unhandled update error: %s", event.exception, exc_info=event.exception)
+    update = event.update
+    try:
+        if update.message:
+            await update.message.answer("Ой... что-то пошло не так. Попробуй ещё раз чуть позже.")
+        elif update.callback_query:
+            await update.callback_query.answer("Ой... что-то пошло не так. Попробуй позже.", show_alert=True)
+    except Exception:
+        pass
+    return True
 
 async def check_reminders(bot: Bot, db: Database):
     reminders = await db.get_due_reminders(time.time())
@@ -72,6 +91,7 @@ async def main():
 
     bot = Bot(token=settings.TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
+    dp.errors.register(on_error)
 
     db = Database(settings.DB_PATH)
     await db.connect()

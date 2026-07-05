@@ -342,17 +342,17 @@ async def admin_selectuser(callback: CallbackQuery, state: FSMContext, db: Datab
 @router.message(AdminStates.waiting_for_broadcast)
 async def process_broadcast(message: Message, state: FSMContext, db: Database):
     if not is_admin(message.from_user.id): return
+    import asyncio
     users = await db.get_all_users()
     sent = 0
     for u in users:
         try:
-            if message.photo:
-                await message.copy_to(u.id)
-            else:
-                await message.copy_to(u.id)
+            await message.copy_to(u.id)
             sent += 1
         except Exception:
             pass
+        # Stay under Telegram's ~30 msg/s broadcast limit.
+        await asyncio.sleep(0.05)
     await message.answer(f"Рассылка отправлена {sent} пользователям.", reply_markup=get_back_button("admin_main"))
     await state.clear()
 

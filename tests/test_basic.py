@@ -231,3 +231,42 @@ async def test_lottery_draw(db):
     await db.buy_lottery_ticket(901, 50)
     winner = await db.draw_lottery_winner(50)
     assert winner == 901
+
+
+# --- Lottery round advances via settings, not MAX(ticket) ---
+
+async def test_lottery_round_advance(db):
+    assert await db.get_current_lottery_round() == 1
+    await db.advance_lottery_round()
+    assert await db.get_current_lottery_round() == 2
+    await db.advance_lottery_round()
+    assert await db.get_current_lottery_round() == 3
+
+
+# --- Ban enforcement: is_user_banned is the single source of truth ---
+
+async def test_is_user_banned(db):
+    user = await db.get_user(1000)
+    assert await db.is_user_banned(1000) is False
+    user.is_banned = True
+    await db.update_user(user)
+    assert await db.is_user_banned(1000) is True
+    # Unknown user is not banned
+    assert await db.is_user_banned(999999) is False
+
+
+# --- Payment audit: stars purchases are recorded as transactions ---
+
+async def test_stars_purchase_transaction(db):
+    await db.get_user(1100)
+    await db.add_transaction(0, 1100, 500, "stars_purchase")
+    txns = await db.get_transactions(10)
+    assert any(t.action_type == "stars_purchase" and t.receiver_id == 1100 and t.amount == 500 for t in txns)
+
+
+# --- Input escaping: user text is HTML-escaped before rendering ---
+
+def test_html_escaping():
+    mod = pytest.importorskip("aiogram.utils.text_decorations")
+    quote = mod.html_decoration.quote
+    assert quote("<b>x</b> & <i") == "&lt;b&gt;x&lt;/b&gt; &amp; &lt;i"

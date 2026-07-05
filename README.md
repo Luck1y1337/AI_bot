@@ -4,6 +4,7 @@
 
 ### AI-компаньон в Telegram с ролевыми диалогами, экономикой, PvP-играми и кланами
 
+[![CI](https://github.com/Luck1y1337/AI_bot/actions/workflows/ci.yml/badge.svg)](https://github.com/Luck1y1337/AI_bot/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Aiogram](https://img.shields.io/badge/Aiogram-3.x-7B68EE?style=flat-square)](https://aiogram.dev/)
 [![Mistral AI](https://img.shields.io/badge/Mistral_AI-ff6f00?style=flat-square)](https://mistral.ai/)
