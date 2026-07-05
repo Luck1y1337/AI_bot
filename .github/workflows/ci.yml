@@ -27,4 +27,4 @@ jobs:
         run: python -m compileall -q ai bot config database media memory utils main.py seed_cards.py
 
       - name: Run tests
-        run: pytest -q
+        run: python -m pytest -q
