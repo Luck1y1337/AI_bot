@@ -10,7 +10,7 @@ router = Router()
 settings = get_settings()
 
 # Custom-amount donations: how many coins per star, and the allowed star range.
-COINS_PER_STAR = 10
+COINS_PER_STAR = 15
 MIN_STARS = 1
 MAX_STARS = 10000
 
