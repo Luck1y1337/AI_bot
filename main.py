@@ -214,6 +214,7 @@ async def main():
         admin_commands = user_commands + [
             BotCommand(command="admin", description="Открыть главное меню Админ-Панели."),
             BotCommand(command="addpromo", description="Создать промокод. Пример: /addpromo MAHIRO 100 50 10."),
+            BotCommand(command="refund", description="Вернуть донат Stars. Пример: /refund <charge_id>."),
             BotCommand(command="ban", description="Заблокировать пользователя."),
             BotCommand(command="unban", description="Разблокировать пользователя."),
             BotCommand(command="maintenance", description="Включить/выключить режим обслуживания."),

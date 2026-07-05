@@ -1,10 +1,14 @@
 from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery, LabeledPrice, PreCheckoutQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils.text_decorations import html_decoration
 from database.repository import Database
 from config.settings import get_settings
 
 router = Router()
 settings = get_settings()
+
+def _is_admin(user_id: int) -> bool:
+    return user_id in settings.ADMIN_USER_IDS
 
 def get_donate_kb() -> InlineKeyboardMarkup:
     kb = [
@@ -87,4 +91,106 @@ async def process_successful_payment(message: Message, db: Database):
     # here never leaves the user thanked but uncredited / unaudited.
     await db.update_user(user)
     await db.add_transaction(0, user.id, coins_granted, "stars_purchase")
+
+    # Store the payment (with charge_id) so an admin can refund it later.
+    sp = message.successful_payment
+    granted_vip = payload == "buy_vip"
+    payment_id = await db.add_star_payment(
+        user.id, sp.telegram_payment_charge_id, sp.total_amount, coins_granted, granted_vip
+    )
+
     await message.answer(reply)
+
+    # Notify admins with a one-tap refund button (payment_id keeps callback_data short).
+    uname = html_decoration.quote(message.from_user.username or "без юзернейма")
+    notify = (f"⭐️ <b>Новый донат</b>\n\nОт: {message.from_user.id} (@{uname})\n"
+              f"Сумма: {sp.total_amount} ⭐️ → {coins_granted} 🪙" + (" + VIP" if granted_vip else ""))
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="↩️ Вернуть Stars", callback_data=f"refund_ask:{payment_id}")]
+    ])
+    for admin_id in settings.ADMIN_USER_IDS:
+        try:
+            await message.bot.send_message(admin_id, notify, reply_markup=kb)
+        except Exception:
+            pass
+
+
+async def _do_refund(bot: Bot, db: Database, payment_id: int) -> str:
+    """Refund a Stars payment and claw back the granted coins/VIP. Returns a status string."""
+    payment = await db.get_star_payment(payment_id)
+    if not payment:
+        return "❌ Платёж не найден."
+    _pid, uid, charge_id, stars, coins, vip, refunded = payment
+    if refunded:
+        return "⚠️ Этот платёж уже возвращён."
+
+    # Reserve atomically so a double click can't refund twice.
+    if not await db.mark_star_payment_refunded(payment_id):
+        return "⚠️ Этот платёж уже возвращён."
+
+    try:
+        await bot.refund_star_payment(user_id=uid, telegram_payment_charge_id=charge_id)
+    except Exception as e:
+        # Roll back the reservation so it can be retried.
+        await db._conn.execute('UPDATE star_payments SET refunded = 0 WHERE id = ?', (payment_id,))
+        await db._conn.commit()
+        return f"❌ Ошибка возврата: {e}"
+
+    # Claw back what was granted (clamped so the balance never goes negative).
+    user = await db.get_user(uid)
+    user.coins = max(0, user.coins - coins)
+    if vip:
+        user.is_vip = False
+    await db.update_user(user)
+    await db.add_transaction(uid, 0, coins, "stars_refund")
+
+    try:
+        await bot.send_message(uid, f"↩️ Ваш донат на {stars} ⭐️ возвращён. Начисленные {coins} 🪙"
+                                    + (" и VIP" if vip else "") + " списаны.")
+    except Exception:
+        pass
+    return f"✅ Возврат выполнен: {stars} ⭐️ пользователю {uid}. Списано {coins} 🪙" + (" и VIP." if vip else ".")
+
+
+@router.callback_query(F.data.startswith("refund_ask:"))
+async def cb_refund_ask(callback: CallbackQuery):
+    if not _is_admin(callback.from_user.id):
+        return
+    payment_id = int(callback.data.split(":")[1])
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Да, вернуть", callback_data=f"refund_do:{payment_id}"),
+         InlineKeyboardButton(text="❌ Отмена", callback_data="refund_cancel")]
+    ])
+    await callback.message.answer("Точно вернуть этот платёж? Начисленные коины (и VIP) будут списаны.", reply_markup=kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("refund_do:"))
+async def cb_refund_do(callback: CallbackQuery, db: Database):
+    if not _is_admin(callback.from_user.id):
+        return
+    payment_id = int(callback.data.split(":")[1])
+    result = await _do_refund(callback.bot, db, payment_id)
+    await callback.message.edit_text(result)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "refund_cancel")
+async def cb_refund_cancel(callback: CallbackQuery):
+    if not _is_admin(callback.from_user.id):
+        return
+    await callback.message.edit_text("Возврат отменён.")
+    await callback.answer()
+
+
+@router.message(F.text.startswith("/refund "))
+async def cmd_refund(message: Message, db: Database):
+    if not _is_admin(message.from_user.id):
+        return
+    charge_id = message.text.split(maxsplit=1)[1].strip()
+    payment = await db.get_star_payment_by_charge(charge_id)
+    if not payment:
+        await message.answer("❌ Платёж с таким charge_id не найден.")
+        return
+    result = await _do_refund(message.bot, db, payment[0])
+    await message.answer(result)

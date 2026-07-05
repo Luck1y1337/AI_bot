@@ -264,6 +264,21 @@ async def test_stars_purchase_transaction(db):
     assert any(t.action_type == "stars_purchase" and t.receiver_id == 1100 and t.amount == 500 for t in txns)
 
 
+# --- Star payments: stored for refunds, double-refund guarded ---
+
+async def test_star_payment_refund_flow(db):
+    await db.get_user(1200)
+    pid = await db.add_star_payment(1200, "charge_abc", 50, 500, False)
+    assert pid > 0
+    payment = await db.get_star_payment(pid)
+    assert payment[1] == 1200 and payment[2] == "charge_abc" and payment[6] == 0  # not refunded
+    assert (await db.get_star_payment_by_charge("charge_abc"))[0] == pid
+    # First refund reservation succeeds, second is rejected (no double refund)
+    assert await db.mark_star_payment_refunded(pid) is True
+    assert await db.mark_star_payment_refunded(pid) is False
+    assert (await db.get_star_payment(pid))[6] == 1  # refunded flag set
+
+
 # --- Input escaping: user text is HTML-escaped before rendering ---
 
 def test_html_escaping():

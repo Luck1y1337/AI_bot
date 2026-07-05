@@ -257,6 +257,16 @@ class Database:
                 issuer_id INTEGER,
                 bounty_amount INTEGER
             )''',
+            '''CREATE TABLE IF NOT EXISTS star_payments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                charge_id TEXT,
+                stars INTEGER,
+                coins INTEGER,
+                vip INTEGER DEFAULT 0,
+                refunded INTEGER DEFAULT 0,
+                created_at REAL
+            )''',
         ]
         for sql in extra_tables:
             try:
@@ -340,6 +350,29 @@ class Database:
         async with self._conn.execute('SELECT id, sender_id, receiver_id, amount, action_type, timestamp FROM transactions ORDER BY timestamp DESC LIMIT ?', (limit,)) as cursor:
             rows = await cursor.fetchall()
             return [Transaction(*row) for row in rows]
+
+    # --- Star payments (for refunds) ---
+    async def add_star_payment(self, user_id: int, charge_id: str, stars: int, coins: int, vip: bool) -> int:
+        cursor = await self._conn.execute(
+            'INSERT INTO star_payments (user_id, charge_id, stars, coins, vip, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+            (user_id, charge_id, stars, coins, int(vip), time.time())
+        )
+        await self._conn.commit()
+        return cursor.lastrowid
+
+    async def get_star_payment(self, payment_id: int) -> Optional[tuple]:
+        async with self._conn.execute('SELECT id, user_id, charge_id, stars, coins, vip, refunded FROM star_payments WHERE id = ?', (payment_id,)) as cursor:
+            return await cursor.fetchone()
+
+    async def get_star_payment_by_charge(self, charge_id: str) -> Optional[tuple]:
+        async with self._conn.execute('SELECT id, user_id, charge_id, stars, coins, vip, refunded FROM star_payments WHERE charge_id = ?', (charge_id,)) as cursor:
+            return await cursor.fetchone()
+
+    async def mark_star_payment_refunded(self, payment_id: int) -> bool:
+        # Atomic guard against double refunds: only flips a not-yet-refunded row.
+        cursor = await self._conn.execute('UPDATE star_payments SET refunded = 1 WHERE id = ? AND refunded = 0', (payment_id,))
+        await self._conn.commit()
+        return cursor.rowcount > 0
 
     async def add_reminder(self, user_id: int, text: str, fire_at: float):
         await self._conn.execute('INSERT INTO reminders (user_id, text, fire_at) VALUES (?, ?, ?)', (user_id, text, fire_at))
