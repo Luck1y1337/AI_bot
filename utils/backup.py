@@ -18,9 +18,9 @@ async def perform_backup(bot: Bot):
     # Simple backup of DB and Logs
     try:
         with zipfile.ZipFile(zip_path, 'w') as zf:
-            if os.path.exists("data/mahiro.db"):
+            if os.path.exists(settings.DB_PATH):
                 # Copy to temp file to avoid lock issues
-                shutil.copy2("data/mahiro.db", "cache/backup/mahiro.db")
+                shutil.copy2(settings.DB_PATH, "cache/backup/mahiro.db")
                 zf.write("cache/backup/mahiro.db", "mahiro.db")
                 os.remove("cache/backup/mahiro.db")
                 

@@ -10,6 +10,9 @@ class Settings(BaseModel):
     ENABLE_WHITELIST: bool
     WHITELIST_USER_IDS: List[int]
     BLACKLIST_USER_IDS: List[int]
+    # Path to the SQLite database file. Local default is fine; on Railway set
+    # DB_PATH=/data/mahiro.db and mount a Volume at /data so it survives redeploys.
+    DB_PATH: str = "data/mahiro.db"
 
     @field_validator('ADMIN_USER_IDS', 'WHITELIST_USER_IDS', 'BLACKLIST_USER_IDS', mode='before')
     @classmethod

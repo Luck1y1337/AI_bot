@@ -60,16 +60,20 @@ async def proactive_message(bot: Bot, db: Database, mistral: MistralClient, memo
             logging.debug(f"Proactive message to {u.id} failed: {e}")
 
 async def main():
-    os.makedirs("data", exist_ok=True)
-    os.makedirs("cache", exist_ok=True)
-    
     settings = get_settings()
+
+    # All persistent state lives next to the DB file, so a single mounted
+    # volume (see DB_PATH / Railway Volume) keeps both the DB and long-term memory.
+    data_dir = os.path.dirname(settings.DB_PATH) or "."
+    os.makedirs(data_dir, exist_ok=True)
+    os.makedirs("cache", exist_ok=True)
+
     create_placeholders()
 
     bot = Bot(token=settings.TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
 
-    db = Database("data/mahiro.db")
+    db = Database(settings.DB_PATH)
     await db.connect()
 
     from seed_cards import seed_cards
@@ -77,7 +81,7 @@ async def main():
 
     mistral = MistralClient(settings.MISTRAL_API_KEY)
 
-    long_term = LongTermMemory()
+    long_term = LongTermMemory(os.path.join(data_dir, "long_term.json"))
     await long_term.load()
     short_term = ShortTermMemory()
     memory = MemoryManager(long_term, short_term)
