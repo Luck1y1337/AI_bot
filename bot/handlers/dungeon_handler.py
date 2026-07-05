@@ -22,7 +22,7 @@ def get_dungeon_action_kb() -> InlineKeyboardMarkup:
 
 @router.callback_query(F.data == "eco_dungeon")
 async def cb_dungeon_menu(callback: CallbackQuery):
-    text = "🔮 **Сюжетные Подземелья**\n\nЗдесь вы можете отправиться в экспедицию. Это опасно, но если у вас есть скрафченный **Меч** и **Броня**, ваши шансы выжить сильно возрастают!"
+    text = "🔮 <b>Сюжетные Подземелья</b>\n\nЗдесь вы можете отправиться в экспедицию. Это опасно, но если у вас есть скрафченный <b>Меч</b> и <b>Броня</b>, ваши шансы выжить сильно возрастают!"
     await callback.message.edit_text(text, reply_markup=get_dungeon_start_kb())
 
 @router.callback_query(F.data == "dungeon_enter_forest")
@@ -50,7 +50,7 @@ async def cb_dungeon_enter(callback: CallbackQuery, db: Database):
         "Вы находите сундук, но когда тянетесь к нему, он отращивает зубы! Это Мимик!"
     ]
     
-    text = "🌲 **Темный Лес**\n\n" + random.choice(scenarios) + "\n\nЧто вы будете делать?"
+    text = "🌲 <b>Темный Лес</b>\n\n" + random.choice(scenarios) + "\n\nЧто вы будете делать?"
     await callback.message.edit_text(text, reply_markup=get_dungeon_action_kb())
 
 @router.callback_query(F.data.startswith("dungeon_action_"))
@@ -72,11 +72,11 @@ async def cb_dungeon_action(callback: CallbackQuery, db: Database):
         if roll <= base_win_chance:
             reward = random.randint(500, 1500)
             await db.add_coins(user_id, reward)
-            text = f"⚔️ **Победа!**\n\nВы храбро сражались и одолели врага! "
+            text = f"⚔️ <b>Победа!</b>\n\nВы храбро сражались и одолели врага! "
             if has_sword: text += "(Ваш меч очень помог!). "
-            text += f"\n\nВы нашли **{reward} 🪙**!"
+            text += f"\n\nВы нашли <b>{reward} 🪙</b>!"
         else:
-            text = f"💀 **Поражение...**\n\nМонстр оказался сильнее. Вы чудом спаслись, но потеряли часть вещей."
+            text = f"💀 <b>Поражение...</b>\n\nМонстр оказался сильнее. Вы чудом спаслись, но потеряли часть вещей."
             # Maybe deduct some coins
             pass
     else:

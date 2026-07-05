@@ -1,6 +1,7 @@
 from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
+from aiogram.utils.text_decorations import html_decoration
 from bot.fsm.states import SupportStates
 from config.settings import get_settings
 from bot.keyboards.main_kb import get_main_menu
@@ -38,7 +39,8 @@ async def process_ticket(message: Message, state: FSMContext, bot: Bot):
         await state.clear()
         return
 
-    text = f"🎫 <b>Новый тикет от {message.from_user.id} (@{message.from_user.username or 'без_юзернейма'}):</b>\n\n{message.text}"
+    username = html_decoration.quote(message.from_user.username or 'без_юзернейма')
+    text = f"🎫 <b>Новый тикет от {message.from_user.id} (@{username}):</b>\n\n{html_decoration.quote(message.text)}"
     
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -77,7 +79,7 @@ async def process_admin_reply(message: Message, state: FSMContext, bot: Bot):
         return
         
     try:
-        await bot.send_message(user_id, f"💌 <b>Ответ от Службы Поддержки (Махиро):</b>\n\n{message.text}", parse_mode="HTML")
+        await bot.send_message(user_id, f"💌 <b>Ответ от Службы Поддержки (Махиро):</b>\n\n{html_decoration.quote(message.text)}")
         await message.answer("Ответ успешно отправлен пользователю.")
     except Exception as e:
         await message.answer(f"Не удалось отправить ответ: {e}")

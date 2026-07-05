@@ -306,6 +306,11 @@ class Database:
             await self._conn.commit()
             return User(user_id, 50, 'normal', 0, 0, 0, False, 0.0, "", None, False, "default", False, 0, "", 0)
 
+    async def is_user_banned(self, user_id: int) -> bool:
+        async with self._conn.execute('SELECT is_banned FROM users WHERE id = ?', (user_id,)) as cursor:
+            row = await cursor.fetchone()
+            return bool(row[0]) if row else False
+
     async def deduct_coins(self, user_id: int, amount: int) -> bool:
         cursor = await self._conn.execute('UPDATE users SET coins = coins - ? WHERE id = ? AND coins >= ?', (amount, user_id, amount))
         await self._conn.commit()
@@ -697,9 +702,17 @@ class Database:
 
     # --- Lottery ---
     async def get_current_lottery_round(self) -> int:
-        async with self._conn.execute('SELECT COALESCE(MAX(round_id), 0) FROM lottery_tickets') as cursor:
-            row = await cursor.fetchone()
-            return row[0] if row[0] else 1
+        # Round number is stored in settings, NOT derived from ticket rows,
+        # so it survives ticket cleanup and advances deterministically.
+        val = await self.get_setting('lottery_round', '1')
+        try:
+            return int(val)
+        except (TypeError, ValueError):
+            return 1
+
+    async def advance_lottery_round(self):
+        current = await self.get_current_lottery_round()
+        await self.set_setting('lottery_round', str(current + 1))
 
     async def buy_lottery_ticket(self, user_id: int, round_id: int):
         await self._conn.execute(

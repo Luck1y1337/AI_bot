@@ -30,7 +30,7 @@ def get_collection_kb(page: int, total_pages: int) -> InlineKeyboardMarkup:
 
 @router.callback_query(F.data == "gacha_menu")
 async def cb_gacha_menu(callback: CallbackQuery):
-    await callback.message.edit_text("🎰 **Гача-Автомат**\n\nЗдесь можно выбить уникальные карточки персонажей!\n*(Бои карточек и RPG-режим находятся в активной разработке. Собирайте коллекцию, чтобы быть готовым!)*", reply_markup=get_gacha_kb())
+    await callback.message.edit_text("🎰 <b>Гача-Автомат</b>\n\nЗдесь можно выбить уникальные карточки персонажей!\n*(Бои карточек и RPG-режим находятся в активной разработке. Собирайте коллекцию, чтобы быть готовым!)*", reply_markup=get_gacha_kb())
 
 @router.callback_query(F.data == "gacha_roll")
 async def cb_gacha_roll(callback: CallbackQuery, db: Database):
@@ -63,7 +63,7 @@ async def cb_gacha_roll(callback: CallbackQuery, db: Database):
     rarity_emojis = {"Common": "⚪", "Rare": "🔵", "Epic": "🟣", "Legendary": "🟡"}
     r_emoji = rarity_emojis.get(pulled[2], "⚪")
     
-    text = f"🎉 **ВЫПАЛА КАРТОЧКА!** 🎉\n\n{r_emoji} **{pulled[1]}**\nРядкость: {pulled[2]}\nБонус к статам: +{pulled[3]}"
+    text = f"🎉 <b>ВЫПАЛА КАРТОЧКА!</b> 🎉\n\n{r_emoji} <b>{pulled[1]}</b>\nРядкость: {pulled[2]}\nБонус к статам: +{pulled[3]}"
     await callback.message.edit_text(text, reply_markup=get_gacha_kb())
     await callback.answer()
 
@@ -85,7 +85,7 @@ async def cb_gacha_collection(callback: CallbackQuery, db: Database):
     start_idx = page * items_per_page
     page_cards = cards[start_idx:start_idx+items_per_page]
     
-    text = f"🎴 **Ваша коллекция** (Стр. {page+1}/{total_pages})\n\n"
+    text = f"🎴 <b>Ваша коллекция</b> (Стр. {page+1}/{total_pages})\n\n"
     rarity_emojis = {"Common": "⚪", "Rare": "🔵", "Epic": "🟣", "Legendary": "🟡"}
     
     for c in page_cards:
@@ -96,6 +96,6 @@ async def cb_gacha_collection(callback: CallbackQuery, db: Database):
         c_stats = c[5] * c_lvl
         emoji = rarity_emojis.get(c_rarity, "⚪")
         
-        text += f"{emoji} **{c_name}** (Ур. {c_lvl}) [ID: {c[1]}]\n└ Мощь: {c_stats}\n\n"
+        text += f"{emoji} <b>{c_name}</b> (Ур. {c_lvl}) [ID: {c[1]}]\n└ Мощь: {c_stats}\n\n"
         
     await callback.message.edit_text(text, reply_markup=get_collection_kb(page, total_pages))

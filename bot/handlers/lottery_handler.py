@@ -25,11 +25,11 @@ async def cb_lottery_menu(callback: CallbackQuery, db: Database):
     jackpot = total_tickets * TICKET_PRICE
 
     text = (
-        "🎟 **Еженедельная Лотерея**\n\n"
-        f"💰 Текущий джекпот: **{jackpot} 🪙**\n"
+        "🎟 <b>Еженедельная Лотерея</b>\n\n"
+        f"💰 Текущий джекпот: <b>{jackpot} 🪙</b>\n"
         f"🎟 Продано билетов: {total_tickets}\n"
         f"👥 Участников: {total_players}\n\n"
-        f"Ваших билетов: **{user_tickets}** / {MAX_TICKETS_PER_USER}\n"
+        f"Ваших билетов: <b>{user_tickets}</b> / {MAX_TICKETS_PER_USER}\n"
         f"Цена билета: {TICKET_PRICE} 🪙\n\n"
         "Розыгрыш происходит автоматически раз в неделю.\n"
         "Чем больше билетов — тем выше шанс!"

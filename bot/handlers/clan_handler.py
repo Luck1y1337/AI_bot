@@ -1,6 +1,7 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
+from aiogram.utils.text_decorations import html_decoration
 from database.repository import Database
 from bot.fsm.states import ClanStates
 
@@ -28,7 +29,7 @@ def get_clan_menu_kb(has_clan: bool) -> InlineKeyboardMarkup:
 @router.callback_query(F.data == "eco_clans")
 async def cb_clans_main(callback: CallbackQuery, db: Database):
     user_clan = await db.get_user_clan(callback.from_user.id)
-    text = "🏰 **Система Кланов**\n\nОбъединяйтесь с другими игроками, пополняйте казну и соревнуйтесь в Топе!"
+    text = "🏰 <b>Система Кланов</b>\n\nОбъединяйтесь с другими игроками, пополняйте казну и соревнуйтесь в Топе!"
     await callback.message.edit_text(text, reply_markup=get_clan_menu_kb(bool(user_clan)))
 
 @router.callback_query(F.data == "clan_create")
@@ -44,10 +45,13 @@ async def cb_clan_create(callback: CallbackQuery, db: Database, state: FSMContex
 @router.message(ClanStates.waiting_for_clan_name)
 async def process_clan_name(message: Message, state: FSMContext, db: Database):
     name = message.text.strip()
+    if not name:
+        await message.answer("Название не может быть пустым. Попробуйте еще раз:")
+        return
     if len(name) > 20:
         await message.answer("Слишком длинное название. Попробуйте еще раз:")
         return
-    
+
     existing = await db.get_clan_by_name(name)
     if existing:
         await message.answer("Клан с таким названием уже существует! Придумайте другое:")
@@ -59,7 +63,7 @@ async def process_clan_name(message: Message, state: FSMContext, db: Database):
         [InlineKeyboardButton(text="✅ Подтвердить (10,000 🪙)", callback_data="confirm_clan_create")],
         [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_clan_create")]
     ])
-    await message.answer(f"Создание клана **{name}** будет стоить 10,000 🪙. Вы уверены?", reply_markup=kb)
+    await message.answer(f"Создание клана <b>{html_decoration.quote(name)}</b> будет стоить 10,000 🪙. Вы уверены?", reply_markup=kb)
 
 @router.callback_query(F.data == "confirm_clan_create")
 async def cb_confirm_clan_create(callback: CallbackQuery, state: FSMContext, db: Database):
@@ -77,7 +81,7 @@ async def cb_confirm_clan_create(callback: CallbackQuery, state: FSMContext, db:
     clan_id = await db.create_clan(name, callback.from_user.id)
     await db.add_transaction(callback.from_user.id, 0, 10000, "clan_create")
     
-    await callback.message.edit_text(f"🎉 Клан **{name}** успешно создан!")
+    await callback.message.edit_text(f"🎉 Клан <b>{html_decoration.quote(name)}</b> успешно создан!")
     await state.clear()
     
 @router.callback_query(F.data == "cancel_clan_create")
@@ -95,7 +99,7 @@ async def cb_clan_my(callback: CallbackQuery, db: Database):
     c_id, c_name, c_owner, c_level, c_xp, c_treasury, role = user_clan
     members = await db.get_clan_members(c_id)
     
-    text = f"🏰 <b>Клан: {c_name}</b>\n"
+    text = f"🏰 <b>Клан: {html_decoration.quote(c_name)}</b>\n"
     text += f"📊 <b>Уровень:</b> {c_level} (Опыт: {c_xp})\n"
     text += f"💰 <b>Казна:</b> {c_treasury} 🪙\n"
     text += f"👥 <b>Участников:</b> {len(members)}\n\n"
@@ -114,7 +118,7 @@ async def cb_clan_top(callback: CallbackQuery, db: Database):
         
     text = "🏆 <b>Топ 10 Кланов сервера</b>\n\n"
     for i, row in enumerate(rows, 1):
-        text += f"{i}. <b>{row[0]}</b> - Ур. {row[1]} (Опыт: {row[2]}) | 🪙 {row[3]}\n"
+        text += f"{i}. <b>{html_decoration.quote(row[0])}</b> - Ур. {row[1]} (Опыт: {row[2]}) | 🪙 {row[3]}\n"
         
     user_clan = await db.get_user_clan(callback.from_user.id)
     await callback.message.edit_text(text, reply_markup=get_clan_menu_kb(bool(user_clan)), parse_mode="HTML")
@@ -219,10 +223,10 @@ async def cb_clan_wars_menu(callback: CallbackQuery, db: Database):
     
     if not war:
         if role != 'owner':
-            text = "🛡️ **Клановые Войны**\n\nВ данный момент ваш клан не участвует в войне. Лидер клана может объявить войну случайному противнику!"
+            text = "🛡️ <b>Клановые Войны</b>\n\nВ данный момент ваш клан не участвует в войне. Лидер клана может объявить войну случайному противнику!"
             kb = [[InlineKeyboardButton(text="🔙 Назад", callback_data="eco_clans")]]
         else:
-            text = "🛡️ **Клановые Войны**\n\nВаш клан не в состоянии войны. Объявить войну случайному клану (Подбор по уровню)?"
+            text = "🛡️ <b>Клановые Войны</b>\n\nВаш клан не в состоянии войны. Объявить войну случайному клану (Подбор по уровню)?"
             kb = [
                 [InlineKeyboardButton(text="⚔️ Искать Противника", callback_data="clan_war_search")],
                 [InlineKeyboardButton(text="🔙 Назад", callback_data="eco_clans")]
@@ -244,8 +248,8 @@ async def cb_clan_wars_menu(callback: CallbackQuery, db: Database):
     
     hours_left = int((e_time - time.time()) / 3600)
     
-    text = (f"⚔️ **Война Кланов!** ⚔️\n\n"
-            f"**{c_name}** 🆚 **{enemy_name}**\n\n"
+    text = (f"⚔️ <b>Война Кланов!</b> ⚔️\n\n"
+            f"<b>{html_decoration.quote(c_name)}</b> 🆚 <b>{html_decoration.quote(enemy_name)}</b>\n\n"
             f"Ваши очки: {my_score} 🛡️\n"
             f"Очки врага: {enemy_score} 🗡️\n\n"
             f"⏳ Осталось времени: ~{hours_left} ч.\n\n"
@@ -356,12 +360,12 @@ async def process_clan_join(message: Message, state: FSMContext, db: Database):
     max_members = 10 + (b_lvl * 5)
     
     if len(members) >= max_members:
-        await message.answer(f"В клане <b>{name}</b> нет мест! Максимум {max_members} участников.", parse_mode="HTML")
+        await message.answer(f"В клане <b>{html_decoration.quote(name)}</b> нет мест! Максимум {max_members} участников.")
         await state.clear()
         return
-        
+
     await db.add_clan_member(c_id, message.from_user.id, role='member')
-    await message.answer(f"🎉 Вы успешно вступили в клан <b>{name}</b>!", parse_mode="HTML")
+    await message.answer(f"🎉 Вы успешно вступили в клан <b>{html_decoration.quote(name)}</b>!")
     await state.clear()
 
 @router.callback_query(F.data == "clan_members")
@@ -372,7 +376,7 @@ async def cb_clan_members(callback: CallbackQuery, db: Database):
     c_id, c_name, c_owner, c_level, c_xp, c_treasury, role = user_clan
     members = await db.get_clan_members(c_id)
     
-    text = f"👥 <b>Участники клана {c_name}</b>\n\n"
+    text = f"👥 <b>Участники клана {html_decoration.quote(c_name)}</b>\n\n"
     for m_id, m_role, joined_at in members:
         import time
         days = int((time.time() - joined_at) / 86400)
@@ -413,7 +417,7 @@ async def process_clan_kick(message: Message, state: FSMContext, db: Database):
     await db.remove_clan_member(c_id, target_id)
     await message.answer(f"✅ Участник {target_id} выгнан из клана.")
     try:
-        await message.bot.send_message(target_id, f"Вы были исключены из клана <b>{user_clan[1]}</b>.", parse_mode="HTML")
+        await message.bot.send_message(target_id, f"Вы были исключены из клана <b>{html_decoration.quote(user_clan[1])}</b>.")
     except Exception: pass
     await state.clear()
 
@@ -451,7 +455,7 @@ async def cb_clan_boss_menu(callback: CallbackQuery, db: Database):
             hours_left = int((end_time - time.time()) / 3600)
             text = f"🐉 <b>Рейд: {boss_name}</b>\n\n"
             text += f"❤️ HP: {hp} / {max_hp}\n"
-            text += f"`{bar}`\n\n"
+            text += f"<code>{bar}</code>\n\n"
             text += f"⏳ Осталось времени: {hours_left} ч.\nКаждый участник может атаковать босса раз в час!"
             kb.append([InlineKeyboardButton(text="⚔️ Атаковать", callback_data="clan_boss_attack")])
             

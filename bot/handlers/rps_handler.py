@@ -40,7 +40,7 @@ def get_rps_play_kb(lobby_id: str) -> InlineKeyboardMarkup:
 @router.callback_query(F.data == "rps_main")
 @router.callback_query(F.data == "rps_refresh")
 async def cb_rps_main(callback: CallbackQuery):
-    text = "✌️ **Камень-Ножницы-Бумага (PvP)**\n\nКлассическая дуэль на коины!\n\n**Активные Лобби:**\n"
+    text = "✌️ <b>Камень-Ножницы-Бумага (PvP)</b>\n\nКлассическая дуэль на коины!\n\n<b>Активные Лобби:</b>\n"
     
     active_lobbies = [k for k, v in RPS_LOBBIES.items() if v["status"] == "waiting"]
     if not active_lobbies:
@@ -80,7 +80,7 @@ async def cb_rps_create(callback: CallbackQuery, db: Database):
         "status": "waiting"
     }
     
-    text = f"✌️ **Лобби #{lobby_id}**\n\nСтавка: {bet} 🪙\nСоздатель: {user_id}\n\nОжидание второго игрока..."
+    text = f"✌️ <b>Лобби #{lobby_id}</b>\n\nСтавка: {bet} 🪙\nСоздатель: {user_id}\n\nОжидание второго игрока..."
     await callback.message.edit_text(text, reply_markup=get_rps_join_kb(lobby_id))
     await callback.answer("Лобби создано!")
 
@@ -109,7 +109,7 @@ async def cb_rps_join(callback: CallbackQuery, db: Database):
     lobby["p2"] = user_id
     lobby["status"] = "playing"
     
-    text = f"✌️ **Лобби #{lobby_id}**\n\nИгрок 1: {lobby['p1']}\nИгрок 2: {lobby['p2']}\nСтавка: {lobby['bet']} 🪙\n\nВыберите ваш ход!"
+    text = f"✌️ <b>Лобби #{lobby_id}</b>\n\nИгрок 1: {lobby['p1']}\nИгрок 2: {lobby['p2']}\nСтавка: {lobby['bet']} 🪙\n\nВыберите ваш ход!"
     await callback.message.edit_text(text, reply_markup=get_rps_play_kb(lobby_id))
     await callback.answer("Вы присоединились!")
 
@@ -145,7 +145,7 @@ async def cb_rps_pick(callback: CallbackQuery, db: Database):
         bet = lobby["bet"]
         
         emojis = {"rock": "🪨", "scissors": "✂️", "paper": "📄"}
-        text = f"✌️ **РЕЗУЛЬТАТЫ Лобби #{lobby_id}**\n\nИгрок {u1} выбрал: {emojis[c1]}\nИгрок {u2} выбрал: {emojis[c2]}\n\n"
+        text = f"✌️ <b>РЕЗУЛЬТАТЫ Лобби #{lobby_id}</b>\n\nИгрок {u1} выбрал: {emojis[c1]}\nИгрок {u2} выбрал: {emojis[c2]}\n\n"
         
         win_matrix = {
             "rock": "scissors",
@@ -179,5 +179,5 @@ async def cb_rps_pick(callback: CallbackQuery, db: Database):
         await callback.message.edit_text(text, reply_markup=get_rps_main_kb(active_lobbies))
     else:
         # One player has chosen, wait for other
-        text = f"✌️ **Лобби #{lobby_id}**\n\nОдин из игроков уже сделал выбор!\nЖдем второго..."
+        text = f"✌️ <b>Лобби #{lobby_id}</b>\n\nОдин из игроков уже сделал выбор!\nЖдем второго..."
         await callback.message.edit_text(text, reply_markup=get_rps_play_kb(lobby_id))

@@ -18,25 +18,25 @@ async def cmd_economy_menu(message: Message):
 @router.callback_query(F.data.in_(["menu_economy", "menu_games", "back_to_main_eco"]))
 async def cb_economy_menu_back(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text("🌟 **Интерактив и Экономика**\n\nВыберите категорию:", reply_markup=get_economy_menu())
+    await callback.message.edit_text("🌟 <b>Интерактив и Экономика</b>\n\nВыберите категорию:", reply_markup=get_economy_menu())
     await callback.answer()
 
 @router.callback_query(F.data == "cat_games")
 async def cb_cat_games(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text("🎮 **Игры и Развлечения**\n\nИспытай удачу и сразись с другими!", reply_markup=get_eco_games_kb())
+    await callback.message.edit_text("🎮 <b>Игры и Развлечения</b>\n\nИспытай удачу и сразись с другими!", reply_markup=get_eco_games_kb())
     await callback.answer()
 
 @router.callback_query(F.data == "cat_income")
 async def cb_cat_income(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text("💼 **Заработок и Финансы**\n\nИнвестируй, торгуй и выполняй контракты!", reply_markup=get_eco_income_kb())
+    await callback.message.edit_text("💼 <b>Заработок и Финансы</b>\n\nИнвестируй, торгуй и выполняй контракты!", reply_markup=get_eco_income_kb())
     await callback.answer()
 
 @router.callback_query(F.data == "cat_social")
 async def cb_cat_social(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text("🤝 **Социальное**\n\nВзаимодействуй с другими игроками!", reply_markup=get_eco_social_kb())
+    await callback.message.edit_text("🤝 <b>Социальное</b>\n\nВзаимодействуй с другими игроками!", reply_markup=get_eco_social_kb())
     await callback.answer()
 
 # --- Квесты (Контракты) ---
@@ -92,9 +92,9 @@ async def cb_eco_daily(callback: CallbackQuery, db: Database):
     await db.update_user(user)
     await db.add_coins(user.id, reward)
 
-    streak_text = f"\n🔥 Streak: **{streak}** дн. (x{multiplier})" if streak > 1 else ""
+    streak_text = f"\n🔥 Streak: <b>{streak}</b> дн. (x{multiplier})" if streak > 1 else ""
     await callback.message.edit_text(
-        f"🎁 Ежедневный бонус: **{reward} 🪙**!{streak_text}",
+        f"🎁 Ежедневный бонус: <b>{reward} 🪙</b>!{streak_text}",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад в Меню", callback_data="back_to_main_eco")]])
     )
     await callback.answer("Бонус получен!")
@@ -184,7 +184,7 @@ async def cb_claim_contract(callback: CallbackQuery, db: Database):
     if random.random() < 0.3:
         mat = random.choice(["Дерево", "Металл", "Кристалл"])
         await db.add_inventory_item(user.id, "material", mat)
-        material_dropped = f"\n\n🎒 Бонус: Вы нашли **{mat}** (материал для крафта)!"
+        material_dropped = f"\n\n🎒 Бонус: Вы нашли <b>{mat}</b> (материал для крафта)!"
         
     await callback.answer(f"Награда получена: {reward_coins} 🪙 и {reward_xp} XP!{material_dropped}", show_alert=True)
     await cb_eco_contracts(callback, db)
@@ -214,10 +214,10 @@ async def cb_eco_gacha(callback: CallbackQuery, db: Database):
     await db.update_user(user)
     await db.add_transaction(user.id, 0, cost, "gacha_roll")
     
-    await callback.message.edit_text("🎰 **Крутим Гачу...** 📦")
+    await callback.message.edit_text("🎰 <b>Крутим Гачу...</b> 📦")
     await asyncio.sleep(1.5)
     
-    await callback.message.edit_text(f"🎰 **Результат Гачи!**\n\n{reward}\n\nТвой баланс: {user.coins} 🪙", reply_markup=get_eco_games_kb())
+    await callback.message.edit_text(f"🎰 <b>Результат Гачи!</b>\n\n{reward}\n\nТвой баланс: {user.coins} 🪙", reply_markup=get_eco_games_kb())
 
 
 # --- Перевод Коинов ---
@@ -242,7 +242,7 @@ async def pay_paginate(callback: CallbackQuery, db: Database):
 @router.callback_query(PayStates.waiting_for_user, F.data == "pay_cancel")
 async def pay_cancel(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text("🤝 **Социальное**\n\nВзаимодействуй с другими игроками!", reply_markup=get_eco_social_kb())
+    await callback.message.edit_text("🤝 <b>Социальное</b>\n\nВзаимодействуй с другими игроками!", reply_markup=get_eco_social_kb())
     await callback.answer("Перевод отменен.")
 
 @router.callback_query(PayStates.waiting_for_user, F.data.startswith("pay_select_"))
@@ -293,14 +293,14 @@ async def process_pay_amount(message: Message, db: Database, state: FSMContext, 
 
 @router.callback_query(F.data == "back_to_economy")
 async def cb_back_to_economy(callback: CallbackQuery):
-    await callback.message.edit_text("🌟 **Интерактив и Экономика**\n\nВыберите категорию:", reply_markup=get_economy_menu())
+    await callback.message.edit_text("🌟 <b>Интерактив и Экономика</b>\n\nВыберите категорию:", reply_markup=get_economy_menu())
     await callback.answer()
 
 # --- Бизнесы ---
 @router.callback_query(F.data == "eco_businesses")
 async def cb_eco_businesses(callback: CallbackQuery, db: Database):
     businesses = await db.get_user_businesses(callback.from_user.id)
-    text = "💼 **Ваши Бизнесы**\n\n"
+    text = "💼 <b>Ваши Бизнесы</b>\n\n"
     if not businesses:
         text += "У вас пока нет бизнесов. Купите один, чтобы получать пассивный доход!"
     else:
@@ -375,7 +375,7 @@ async def cb_collect_biz(callback: CallbackQuery, db: Database):
 # --- Магазин ---
 @router.callback_query(F.data == "eco_shop")
 async def cb_eco_shop(callback: CallbackQuery):
-    text = "🏪 **Магазин Баффов и Титулов**\n\nЗдесь можно купить полезные предметы за коины."
+    text = "🏪 <b>Магазин Баффов и Титулов</b>\n\nЗдесь можно купить полезные предметы за коины."
     await callback.message.edit_text(text, reply_markup=get_shop_kb())
 
 @router.callback_query(F.data.startswith("shop_buy_"))
@@ -405,7 +405,7 @@ async def cb_shop_buy(callback: CallbackQuery, db: Database, state: FSMContext):
         await callback.answer("Вы купили титул 'Семпай'!", show_alert=True)
     elif item == "vip_ai":
         await state.set_state(ShopStates.waiting_for_custom_prompt)
-        await callback.message.answer("👑 Вы купили возможность задать **Кастомную ИИ-Роль** для бота!\n\nПожалуйста, отправьте следующим сообщением промпт (инструкцию) того, как бот должен себя вести с вами (например: 'Общайся со мной как дерзкая цундере' или 'Ты мой мудрый наставник Yoda').\nИли напишите 'отмена', чтобы отменить ввод.")
+        await callback.message.answer("👑 Вы купили возможность задать <b>Кастомную ИИ-Роль</b> для бота!\n\nПожалуйста, отправьте следующим сообщением промпт (инструкцию) того, как бот должен себя вести с вами (например: 'Общайся со мной как дерзкая цундере' или 'Ты мой мудрый наставник Yoda').\nИли напишите 'отмена', чтобы отменить ввод.")
         await callback.answer()
         
     from utils.quests import increment_quest_progress
@@ -434,7 +434,7 @@ async def cb_eco_bank(callback: CallbackQuery, db: Database):
     deposits = sum(r[3] for r in records if r[2] == 'deposit')
     loans = sum(r[3] for r in records if r[2] == 'loan')
     
-    text = f"🏦 **Банк Махиро**\n\nВаши вклады: {deposits} 🪙\nВаши долги: {loans} 🪙\n\nПроцент по вкладу: 2% в день.\nКредит нужно вернуть за 7 дней."
+    text = f"🏦 <b>Банк Махиро</b>\n\nВаши вклады: {deposits} 🪙\nВаши долги: {loans} 🪙\n\nПроцент по вкладу: 2% в день.\nКредит нужно вернуть за 7 дней."
     await callback.message.edit_text(text, reply_markup=get_bank_kb())
 
 @router.callback_query(F.data == "bank_deposit")
@@ -534,7 +534,7 @@ async def cb_eco_casino(callback: CallbackQuery, db: Database, state: FSMContext
         await callback.answer("Нет соперников для игры.", show_alert=True)
         return
     await state.set_state(CasinoStates.waiting_for_opponent)
-    await callback.message.edit_text("🎲 **Coinflip (Орел и Решка)**\n\nВыберите соперника, которому хотите бросить вызов:", reply_markup=get_pay_users_kb(users, 0))
+    await callback.message.edit_text("🎲 <b>Coinflip (Орел и Решка)</b>\n\nВыберите соперника, которому хотите бросить вызов:", reply_markup=get_pay_users_kb(users, 0))
 
 @router.callback_query(CasinoStates.waiting_for_opponent, F.data.startswith("pay_page_"))
 async def casino_paginate(callback: CallbackQuery, db: Database):
@@ -555,7 +555,7 @@ async def casino_select_opponent(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(CasinoStates.waiting_for_opponent, F.data == "pay_cancel")
 async def casino_cancel(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text("🎮 **Игры и Развлечения**\n\nИспытай удачу и сразись с другими!", reply_markup=get_eco_games_kb())
+    await callback.message.edit_text("🎮 <b>Игры и Развлечения</b>\n\nИспытай удачу и сразись с другими!", reply_markup=get_eco_games_kb())
     await callback.answer()
 
 @router.message(CasinoStates.waiting_for_bet)
@@ -672,7 +672,7 @@ async def cb_eco_rep(callback: CallbackQuery, db: Database, state: FSMContext):
         return
         
     await state.set_state(RepStates.waiting_for_target)
-    await callback.message.edit_text("🎯 **Кому выдать +Rep?**\n(Дает +50 XP выбранному игроку)", reply_markup=get_social_users_kb(users, 0))
+    await callback.message.edit_text("🎯 <b>Кому выдать +Rep?</b>\n(Дает +50 XP выбранному игроку)", reply_markup=get_social_users_kb(users, 0))
 
 @router.callback_query(RepStates.waiting_for_target, F.data.startswith("pay_page_"))
 async def rep_paginate(callback: CallbackQuery, db: Database):
@@ -701,7 +701,7 @@ async def rep_select(callback: CallbackQuery, db: Database, state: FSMContext, b
 @router.callback_query(RepStates.waiting_for_target, F.data == "pay_cancel")
 async def rep_cancel(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text("🤝 **Социальное**\n\nВзаимодействуй с другими игроками!", reply_markup=get_eco_social_kb())
+    await callback.message.edit_text("🤝 <b>Социальное</b>\n\nВзаимодействуй с другими игроками!", reply_markup=get_eco_social_kb())
     await callback.answer()
 
 

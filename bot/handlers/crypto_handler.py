@@ -35,10 +35,10 @@ async def cb_crypto_market(callback: CallbackQuery, db: Database):
     inv = await db.get_inventory_item(user_id, "crypto_mhr")
     amount = inv[2] if inv else 0
     
-    text = "🪙 **Криптобиржа Махиро (MHR)**\n\n"
-    text += f"📈 Текущий курс: **{price} 🪙** за 1 MHR\n"
+    text = "🪙 <b>Криптобиржа Махиро (MHR)</b>\n\n"
+    text += f"📈 Текущий курс: <b>{price} 🪙</b> за 1 MHR\n"
     text += f"Курс динамически меняется каждый час.\n\n"
-    text += f"Ваш баланс: **{amount} MHR** (эквивалент {amount * price} 🪙)"
+    text += f"Ваш баланс: <b>{amount} MHR</b> (эквивалент {amount * price} 🪙)"
     
     await callback.message.edit_text(text, reply_markup=get_crypto_kb())
 

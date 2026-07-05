@@ -35,7 +35,7 @@ async def get_bm_kb(db: Database) -> InlineKeyboardMarkup:
 
 @router.callback_query(F.data == "eco_black_market")
 async def cb_black_market(callback: CallbackQuery, db: Database):
-    text = "🌑 **Чёрный Рынок**\n\nТссс... Здесь продаются самые редкие вещи в игре. Товар обновляется раз в день. Количество строго ограничено!\n\nЧто будешь брать?"
+    text = "🌑 <b>Чёрный Рынок</b>\n\nТссс... Здесь продаются самые редкие вещи в игре. Товар обновляется раз в день. Количество строго ограничено!\n\nЧто будешь брать?"
     await callback.message.edit_text(text, reply_markup=await get_bm_kb(db))
 
 

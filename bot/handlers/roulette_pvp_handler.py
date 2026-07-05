@@ -40,7 +40,7 @@ def get_game_kb(lobby_id: str, current_turn_id: int, user_id: int) -> InlineKeyb
 @router.callback_query(F.data == "roul_main")
 @router.callback_query(F.data == "roul_refresh")
 async def cb_roulette_main(callback: CallbackQuery):
-    text = "🔫 **Русская Рулетка (Мультиплеер)**\n\nСмертельная игра до последнего выжившего. Победитель забирает весь банк!\n\n**Активные Лобби:**\n"
+    text = "🔫 <b>Русская Рулетка (Мультиплеер)</b>\n\nСмертельная игра до последнего выжившего. Победитель забирает весь банк!\n\n<b>Активные Лобби:</b>\n"
     
     active_lobbies = [k for k, v in ROULETTE_LOBBIES.items() if v["status"] == "waiting"]
     if not active_lobbies:
@@ -74,7 +74,7 @@ async def cb_roul_create(callback: CallbackQuery, db: Database):
         "status": "waiting"
     }
     
-    text = f"🔫 **Лобби #{lobby_id}**\n\nСтавка: {bet} 🪙\nИгроки (1/6):\n1. {user_id} (Хост)\n\nОжидание других игроков..."
+    text = f"🔫 <b>Лобби #{lobby_id}</b>\n\nСтавка: {bet} 🪙\nИгроки (1/6):\n1. {user_id} (Хост)\n\nОжидание других игроков..."
     await callback.message.edit_text(text, reply_markup=get_lobby_kb(lobby_id, True))
     await callback.answer("Лобби создано!")
 
@@ -105,7 +105,7 @@ async def cb_roul_join(callback: CallbackQuery, db: Database):
         
     lobby["players"].append(user_id)
     
-    text = f"🔫 **Лобби #{lobby_id}**\n\nСтавка: {lobby['bet']} 🪙\nИгроки ({len(lobby['players'])}/6):\n"
+    text = f"🔫 <b>Лобби #{lobby_id}</b>\n\nСтавка: {lobby['bet']} 🪙\nИгроки ({len(lobby['players'])}/6):\n"
     for i, p in enumerate(lobby["players"], 1):
         text += f"{i}. {p}\n"
         
@@ -137,7 +137,7 @@ async def cb_roul_start(callback: CallbackQuery):
     
     current_player = lobby["players"][0]
     
-    text = f"🔫 **ИГРА НАЧАЛАСЬ!** Лобби #{lobby_id}\nБанк: {lobby['total_bank']} 🪙\n\n"
+    text = f"🔫 <b>ИГРА НАЧАЛАСЬ!</b> Лобби #{lobby_id}\nБанк: {lobby['total_bank']} 🪙\n\n"
     text += f"Револьвер заряжен 1 патроном из 6. Барабан раскручен.\n\n"
     text += f"💥 Ход игрока: {current_player}"
     
@@ -183,13 +183,13 @@ async def cb_roul_shoot(callback: CallbackQuery, db: Database, bot: Bot):
         await db.add_coins(winner, win_amount)
         
         lobby["status"] = "finished"
-        text = f"🏆 **ИГРА ОКОНЧЕНА!** Лобби #{lobby_id}\n\nПоследний выживший: {winner}\nОн забирает {win_amount} 🪙 (Налог: {tax} 🪙)!"
+        text = f"🏆 <b>ИГРА ОКОНЧЕНА!</b> Лобби #{lobby_id}\n\nПоследний выживший: {winner}\nОн забирает {win_amount} 🪙 (Налог: {tax} 🪙)!"
         active_lobbies = [k for k, v in ROULETTE_LOBBIES.items() if v["status"] == "waiting"]
         await callback.message.edit_text(text, reply_markup=get_roulette_main_kb(active_lobbies))
         # Clean up later or leave it to be overwritten
     else:
         next_player = lobby["players"][lobby["turn_idx"]]
-        text = f"🔫 **ИГРА ИДЕТ!** Лобби #{lobby_id}\nБанк: {lobby['total_bank']} 🪙\n\n"
+        text = f"🔫 <b>ИГРА ИДЕТ!</b> Лобби #{lobby_id}\nБанк: {lobby['total_bank']} 🪙\n\n"
         if is_dead:
             text += f"💀 Игрок {user_id} застрелился!\nБарабан раскручен заново.\n\n"
         else:

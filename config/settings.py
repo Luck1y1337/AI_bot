@@ -7,7 +7,6 @@ class Settings(BaseModel):
     TELEGRAM_TOKEN: str
     MISTRAL_API_KEY: str
     ADMIN_USER_IDS: List[int]
-    ADMIN_PANEL_TOKEN: str
     ENABLE_WHITELIST: bool
     WHITELIST_USER_IDS: List[int]
     BLACKLIST_USER_IDS: List[int]
@@ -21,7 +20,7 @@ class Settings(BaseModel):
             return []
         return v
 
-    @field_validator('TELEGRAM_TOKEN', 'MISTRAL_API_KEY', 'ADMIN_PANEL_TOKEN')
+    @field_validator('TELEGRAM_TOKEN', 'MISTRAL_API_KEY')
     @classmethod
     def check_placeholders(cls, v, info):
         if 'changeme' in v.lower() or 'your_' in v.lower():

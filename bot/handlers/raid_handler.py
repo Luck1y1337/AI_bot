@@ -134,7 +134,7 @@ async def cb_raid_attack(callback: CallbackQuery, db: Database):
                 u.xp += u_xp
                 await db.update_user(u)
                 
-        await callback.message.edit_text(f"🎉 **ПОБЕДА!** 🎉\n\nВы нанесли последний удар боссу **{name}**!\nНаграды были распределены между всеми участниками пропорционально их урону.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="menu_games")]]))
+        await callback.message.edit_text(f"🎉 <b>ПОБЕДА!</b> 🎉\n\nВы нанесли последний удар боссу <b>{name}</b>!\nНаграды были распределены между всеми участниками пропорционально их урону.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="menu_games")]]))
         await callback.answer()
     else:
         # Mini reward for every hit

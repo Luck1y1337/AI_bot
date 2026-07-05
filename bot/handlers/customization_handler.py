@@ -17,7 +17,7 @@ def get_customization_kb() -> InlineKeyboardMarkup:
 
 @router.callback_query(F.data == "eco_customization")
 async def cb_customization(callback: CallbackQuery):
-    text = "🎨 **Магазин Кастомизации**\n\nЗдесь вы можете изменить рамку вокруг вашей аватарки в команде /stats! После покупки рамка применится автоматически."
+    text = "🎨 <b>Магазин Кастомизации</b>\n\nЗдесь вы можете изменить рамку вокруг вашей аватарки в команде /stats! После покупки рамка применится автоматически."
     await callback.message.edit_text(text, reply_markup=get_customization_kb())
 
 @router.callback_query(F.data.startswith("buy_frame_"))

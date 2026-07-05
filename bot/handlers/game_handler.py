@@ -72,12 +72,12 @@ async def cmd_leaderboard(message: Message, db: Database):
     from utils.levels import get_level, get_title
     top_users = await db.get_top_users_by_xp(10)
     medals = ["🥇", "🥈", "🥉"]
-    text = "🏆 **Таблица Лидеров** 🏆\n\n"
+    text = "🏆 <b>Таблица Лидеров</b> 🏆\n\n"
     for i, u in enumerate(top_users):
         inventory = await db.get_user_inventory(u.id)
         titles = [item[3] for item in inventory if item[2] == 'title']
         title_text = f" [{titles[0]}]" if titles else ""
-        medal = medals[i] if i < 3 else f"`{i+1}.`"
+        medal = medals[i] if i < 3 else f"<code>{i+1}.</code>"
         display_name = f"@{u.username}" if u.username else f"ID {u.id}"
         lvl = get_level(u.xp)
         text += f"{medal}{title_text} {display_name} — Ур. {lvl} ({u.xp} XP)\n"
@@ -86,12 +86,12 @@ async def cmd_leaderboard(message: Message, db: Database):
 @router.callback_query(F.data == "eco_blackjack")
 async def cb_eco_blackjack(callback: CallbackQuery, state: FSMContext):
     await state.set_state(BlackjackStates.waiting_for_bet)
-    await callback.message.edit_text("🃏 **Блэкджек (21)**\n\nОбыграйте дилера, не набрав больше 21!\n\nВведите ставку (в коинах):")
+    await callback.message.edit_text("🃏 <b>Блэкджек (21)</b>\n\nОбыграйте дилера, не набрав больше 21!\n\nВведите ставку (в коинах):")
     await callback.answer()
 
 @router.callback_query(F.data == "roul_main")
 async def cb_roul_main(callback: CallbackQuery):
-    await callback.message.edit_text("🎡 **Рулетка**\n\nВыберите сумму ставки:", reply_markup=get_roulette_bet_kb())
+    await callback.message.edit_text("🎡 <b>Рулетка</b>\n\nВыберите сумму ставки:", reply_markup=get_roulette_bet_kb())
     await callback.answer()
 
 # --- Блэкджек (21) ---
@@ -120,7 +120,7 @@ def calculate_hand(hand: list) -> int:
 @router.message(F.text.lower() == "блэкджек")
 async def cmd_blackjack(message: Message, state: FSMContext):
     await state.set_state(BlackjackStates.waiting_for_bet)
-    await message.answer("🃏 **Блэкджек (21)**\nВведите вашу ставку (в коинах):")
+    await message.answer("🃏 <b>Блэкджек (21)</b>\nВведите вашу ставку (в коинах):")
 
 @router.message(BlackjackStates.waiting_for_bet)
 async def process_bj_bet(message: Message, state: FSMContext, db: Database):
@@ -145,7 +145,7 @@ async def process_bj_bet(message: Message, state: FSMContext, db: Database):
     await state.update_data(bet=bet, deck=deck, player_hand=player_hand, dealer_hand=dealer_hand)
     await state.set_state(BlackjackStates.playing)
     
-    text = f"🃏 **Блэкджек** | Ставка: {bet} 🪙\n\n"
+    text = f"🃏 <b>Блэкджек</b> | Ставка: {bet} 🪙\n\n"
     text += f"Ваша рука: {' '.join(player_hand)} (Сумма: {calculate_hand(player_hand)})\n"
     text += f"Рука дилера: {dealer_hand[0]} 🎴 (Сумма: ?)\n"
     
@@ -170,27 +170,27 @@ async def finish_bj(message_or_call, state: FSMContext, db: Database, base_text:
     if reason == "blackjack":
         winnings = int(bet * 2.5) # Original bet + 1.5x profit
         user.coins += winnings
-        final_text = base_text + f"\n🎉 **Блэкджек! Вы выиграли {winnings - bet} 🪙!**"
+        final_text = base_text + f"\n🎉 <b>Блэкджек! Вы выиграли {winnings - bet} 🪙!</b>"
     elif reason == "bust":
-        final_text = base_text + f"\n💥 **Перебор! Вы проиграли {bet} 🪙.**"
+        final_text = base_text + f"\n💥 <b>Перебор! Вы проиграли {bet} 🪙.</b>"
     else:
         # Dealer plays
         while calculate_hand(d_hand) < 17:
             d_hand.append(deck.pop())
         d_score = calculate_hand(d_hand)
         
-        final_text = f"🃏 **Блэкджек** | Ставка: {bet} 🪙\n\n"
+        final_text = f"🃏 <b>Блэкджек</b> | Ставка: {bet} 🪙\n\n"
         final_text += f"Ваша рука: {' '.join(p_hand)} (Сумма: {p_score})\n"
         final_text += f"Рука дилера: {' '.join(d_hand)} (Сумма: {d_score})\n\n"
         
         if d_score > 21 or p_score > d_score:
             user.coins += bet * 2
-            final_text += f"🎉 **Вы выиграли {bet} 🪙!**"
+            final_text += f"🎉 <b>Вы выиграли {bet} 🪙!</b>"
         elif p_score < d_score:
-            final_text += f"💸 **Дилер выиграл. Вы проиграли {bet} 🪙.**"
+            final_text += f"💸 <b>Дилер выиграл. Вы проиграли {bet} 🪙.</b>"
         else:
             user.coins += bet
-            final_text += "🤝 **Ничья. Ставка возвращена.**"
+            final_text += "🤝 <b>Ничья. Ставка возвращена.</b>"
             
     await db.update_user(user)
     await state.clear()
@@ -213,7 +213,7 @@ async def cb_bj_action(callback: CallbackQuery, state: FSMContext, db: Database)
         p_score = calculate_hand(p_hand)
         d_hand = data['dealer_hand']
         
-        text = f"🃏 **Блэкджек** | Ставка: {data['bet']} 🪙\n\n"
+        text = f"🃏 <b>Блэкджек</b> | Ставка: {data['bet']} 🪙\n\n"
         text += f"Ваша рука: {' '.join(p_hand)} (Сумма: {p_score})\n"
         text += f"Рука дилера: {d_hand[0]} 🎴 (Сумма: ?)\n"
         
@@ -232,12 +232,12 @@ async def cb_bj_action(callback: CallbackQuery, state: FSMContext, db: Database)
 # --- Рулетка ---
 @router.message(F.text.lower() == "рулетка")
 async def cmd_roulette(message: Message):
-    await message.answer("🎡 **Рулетка**\nВыберите сумму ставки:", reply_markup=get_roulette_bet_kb())
+    await message.answer("🎡 <b>Рулетка</b>\nВыберите сумму ставки:", reply_markup=get_roulette_bet_kb())
 
 @router.callback_query(F.data.startswith("rl_bet_"))
 async def cb_rl_bet(callback: CallbackQuery):
     bet = int(callback.data.split("_")[2])
-    await callback.message.edit_text(f"🎡 **Рулетка**\nСтавка: **{bet} 🪙**\nВыберите цвет:", reply_markup=get_roulette_color_kb(bet))
+    await callback.message.edit_text(f"🎡 <b>Рулетка</b>\nСтавка: <b>{bet} 🪙</b>\nВыберите цвет:", reply_markup=get_roulette_color_kb(bet))
     await callback.answer()
 
 @router.callback_query(F.data.startswith("rl_color_"))
@@ -263,7 +263,7 @@ async def _process_roulette_result(callback: CallbackQuery, bet: int, bet_type: 
         result_color = "black"
         
     color_emoji = {"red": "🔴", "black": "⚫", "green": "🟢"}[result_color]
-    text = f"🎡 Шарик остановился на: **{roll} {color_emoji}**\n\n"
+    text = f"🎡 Шарик остановился на: <b>{roll} {color_emoji}</b>\n\n"
     win = 0
     
     if bet_type == result_color:

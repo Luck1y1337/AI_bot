@@ -2,6 +2,7 @@ from aiogram import Router, F, Bot
 from aiogram.types import Message, FSInputFile, BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.filters import CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
+from aiogram.utils.text_decorations import html_decoration
 from database.repository import Database
 from ai.mistral_client import MistralClient
 from ai.prompt_builder import build_system_prompt
@@ -56,14 +57,14 @@ async def cmd_start(message: Message, db: Database, bot: Bot, state: FSMContext)
                     await db.add_coins(referrer_id, REFERRAL_BONUS)
                     await db.add_coins(user.id, REFERRAL_BONUS)
                     try:
-                        await bot.send_message(referrer_id, f"🎉 Ваш друг присоединился по вашей ссылке! Вам начислено **{REFERRAL_BONUS} 🪙**!")
+                        await bot.send_message(referrer_id, f"🎉 Ваш друг присоединился по вашей ссылке! Вам начислено <b>{REFERRAL_BONUS} 🪙</b>!")
                     except Exception: pass
             except (ValueError, TypeError): pass
 
         tutorial_text = (
             "О, новенький! Добро пожаловать. Я Махиро. 🎀\n\n"
-            "Давай я покажу тебе, как тут всё устроено. Я перевела тебе твой первый стартовый капитал: **500 🪙**!\n\n"
-            "🎯 **Твой первый квест:**\n"
+            "Давай я покажу тебе, как тут всё устроено. Я перевела тебе твой первый стартовый капитал: <b>500 🪙</b>!\n\n"
+            "🎯 <b>Твой первый квест:</b>\n"
             "Нажми кнопку «🌟 Интерактив и Экономика» внизу, затем выбери «Заработок и Финансы» -> «Магазин» и купи себе энергетик!"
         )
         await message.answer(tutorial_text, reply_markup=get_main_menu(message.from_user.id))
@@ -90,15 +91,15 @@ async def cmd_stats(message: Message, db: Database, bot: Bot):
     rank_title = get_title(user.xp)
     streak_text = f"🔥 Streak: {user.streak_count} дн." if user.streak_count > 1 else ""
 
-    text = (f"**Твоя Статистика**{title_text}\n"
-            f"📊 Уровень: **{level}** — {rank_title}\n"
+    text = (f"<b>Твоя Статистика</b>{title_text}\n"
+            f"📊 Уровень: <b>{level}</b> — {rank_title}\n"
             f"✨ XP: {xp_bar} {xp_cur}/{xp_need}\n"
             f"🪙 MahiroCoins: {user.coins}\n"
             f"💬 Сообщений: {user.message_count}\n"
             f"💕 Доверие: {user.trust}%\n"
             f"😊 Настроение: {user.mood}\n"
             f"{streak_text}\n\n"
-            f"**Достижения:**\n{ach_text}").strip()
+            f"<b>Достижения:</b>\n{ach_text}").strip()
             
     # Generate profile image
     avatar_bytes = None
@@ -128,13 +129,13 @@ async def cb_stats_reset(callback: CallbackQuery, memory):
 async def cb_stats_reminders(callback: CallbackQuery, db: Database):
     reminders = await db.get_user_reminders(callback.from_user.id)
     if not reminders:
-        text = "⏰ У вас нет активных напоминаний.\n\n*Вы можете создать их с помощью команды /remind*"
+        text = "⏰ У вас нет активных напоминаний.\n\n<i>Вы можете создать их с помощью команды /remind</i>"
     else:
-        text = "⏰ **Ваши активные напоминания:**\n\n"
+        text = "⏰ <b>Ваши активные напоминания:</b>\n\n"
         from datetime import datetime
         for r in reminders:
             dt = datetime.fromtimestamp(r.fire_at).strftime('%Y-%m-%d %H:%M')
-            text += f"• {r.text} (до {dt})\n"
+            text += f"• {html_decoration.quote(r.text)} (до {dt})\n"
     
     await callback.message.answer(text)
     await callback.answer()
@@ -210,8 +211,9 @@ async def process_photo(message: Message, db: Database, mistral: MistralClient, 
     response = await mistral.generate_response(user_prompt, sys_prompt, memory.short.get_history(user.id))
     
     memory.short.add_message(user.id, "assistant", response)
-    
-    await message.answer(response)
+
+    # AI output is free text — escape so stray <, >, & don't break HTML parsing.
+    await message.answer(html_decoration.quote(response))
 
 @router.message(F.text == "🎁 Промокод")
 async def btn_promo_start(message: Message, state: FSMContext):
@@ -271,11 +273,11 @@ async def cmd_invite(message: Message, db: Database, bot: Bot):
     ref_link = f"https://t.me/{bot_user.username}?start=ref_{message.from_user.id}"
     ref_count = await db.get_referral_count(message.from_user.id)
     text = (
-        f"🔗 **Твоя реферальная ссылка:**\n`{ref_link}`\n\n"
-        f"Поделись ссылкой с друзьями — вы оба получите **{REFERRAL_BONUS} 🪙**!\n\n"
-        f"👥 Приглашено друзей: **{ref_count}**"
+        f"🔗 <b>Твоя реферальная ссылка:</b>\n<code>{ref_link}</code>\n\n"
+        f"Поделись ссылкой с друзьями — вы оба получите <b>{REFERRAL_BONUS} 🪙</b>!\n\n"
+        f"👥 Приглашено друзей: <b>{ref_count}</b>"
     )
-    await message.answer(text, parse_mode="Markdown")
+    await message.answer(text)
 
 @router.message(F.text)
 async def process_message(message: Message, db: Database, mistral: MistralClient, memory: MemoryManager, bot: Bot):
@@ -323,7 +325,7 @@ async def process_message(message: Message, db: Database, mistral: MistralClient
     # Analyze old triggers
     fast_response = old_trigger_system.check_triggers(text, user.trust / 100)
     if fast_response:
-        await message.answer(fast_response, reply_markup=get_main_menu(user_id))
+        await message.answer(html_decoration.quote(fast_response), reply_markup=get_main_menu(user_id))
         memory.short.add_message(user_id, "user", text)
         memory.short.add_message(user_id, "assistant", fast_response)
         await db.update_user(user)
@@ -350,7 +352,7 @@ async def process_message(message: Message, db: Database, mistral: MistralClient
     if leveled_up:
         user.coins += level_reward
         new_title = get_title(user.xp)
-        level_text = f"\n\n🎉 **Уровень {new_level}!** (+{level_reward} 🪙) — {new_title}"
+        level_text = f"\n\n🎉 <b>Уровень {new_level}!</b> (+{level_reward} 🪙) — {new_title}"
 
     # Achievements
     achievements = await check_achievements(user, db, message)
@@ -360,7 +362,7 @@ async def process_message(message: Message, db: Database, mistral: MistralClient
     if random.random() < 0.2:
         img_path = f"media/images/{user.mood}.png"
         if os.path.exists(img_path):
-            await message.answer_photo(FSInputFile(img_path), caption=response + level_text + ach_text, reply_markup=get_main_menu(user_id))
+            await message.answer_photo(FSInputFile(img_path), caption=html_decoration.quote(response) + level_text + ach_text, reply_markup=get_main_menu(user_id))
             return
 
-    await message.answer(response + level_text + ach_text, reply_markup=get_main_menu(user_id))
+    await message.answer(html_decoration.quote(response) + level_text + ach_text, reply_markup=get_main_menu(user_id))

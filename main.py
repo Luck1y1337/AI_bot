@@ -3,10 +3,12 @@ import logging
 import os
 import sys
 import time
-import threading
 
 from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
 from aiogram.types import BotCommand
+from aiogram.utils.text_decorations import html_decoration
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from config.settings import get_settings
@@ -21,7 +23,6 @@ from bot.middlewares.whitelist import WhitelistMiddleware
 from bot.middlewares.logging_middleware import LoggingMiddleware
 from bot.handlers import main_handler, admin_handler, game_handler, reminder_handler, gift_handler, support_handler, donate_handler, economy_handler, clan_handler, gacha_handler, pet_handler, raid_handler, market_handler
 from media.mood_images import create_placeholders
-from web.app import start_web
 
 os.makedirs("logs", exist_ok=True)
 
@@ -35,7 +36,7 @@ async def check_reminders(bot: Bot, db: Database):
     reminders = await db.get_due_reminders(time.time())
     for r in reminders:
         try:
-            await bot.send_message(r.user_id, f"Uh... hey. You told me to remind you about this:\n{r.text}")
+            await bot.send_message(r.user_id, f"Uh... hey. You told me to remind you about this:\n{html_decoration.quote(r.text)}")
             await db.delete_reminder(r.id)
         except Exception as e:
             logging.warning(f"Failed to send reminder {r.id} to {r.user_id}: {e}")
@@ -65,7 +66,7 @@ async def main():
     settings = get_settings()
     create_placeholders()
 
-    bot = Bot(token=settings.TELEGRAM_TOKEN)
+    bot = Bot(token=settings.TELEGRAM_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
 
     db = Database("data/mahiro.db")
@@ -83,11 +84,11 @@ async def main():
 
     from bot.middlewares.maintenance import MaintenanceMiddleware
     
-    # Middlewares
-    dp.message.middleware(LoggingMiddleware())
-    dp.message.middleware(MaintenanceMiddleware())
-    dp.message.middleware(WhitelistMiddleware())
-    dp.message.middleware(AntiSpamMiddleware())
+    # Middlewares (applied to both messages and callback queries so bans,
+    # whitelist, maintenance and anti-spam cannot be bypassed via inline buttons)
+    for mw in (LoggingMiddleware(), MaintenanceMiddleware(), WhitelistMiddleware(), AntiSpamMiddleware()):
+        dp.message.middleware(mw)
+        dp.callback_query.middleware(mw)
 
     # Pass dependencies
     deps = {"db": db, "mistral": mistral, "memory": memory}
@@ -150,14 +151,13 @@ async def main():
         if not winner_id:
             return
         await db_inst.add_coins(winner_id, jackpot)
+        await db_inst.add_transaction(0, winner_id, jackpot, "lottery_win")
         try:
-            await bot_inst.send_message(winner_id, f"🎉🎟 **ВЫ ВЫИГРАЛИ ЛОТЕРЕЮ!**\n\nДжекпот: **{jackpot} 🪙**!\nПоздравляем!")
+            await bot_inst.send_message(winner_id, f"🎉🎟 <b>ВЫ ВЫИГРАЛИ ЛОТЕРЕЮ!</b>\n\nДжекпот: <b>{jackpot} 🪙</b>!\nПоздравляем!")
         except Exception:
             pass
-        # Start new round
-        await db_inst.buy_lottery_ticket(0, round_id + 1)
-        await db_inst._conn.execute('DELETE FROM lottery_tickets WHERE user_id = 0')
-        await db_inst._conn.commit()
+        # Advance to the next round (round number lives in settings, not derived from tickets)
+        await db_inst.advance_lottery_round()
 
     from utils.backup import perform_backup
     scheduler = AsyncIOScheduler()
@@ -167,9 +167,6 @@ async def main():
     scheduler.add_job(perform_backup, 'cron', hour='3', minute='0', args=[bot])
     scheduler.add_job(draw_lottery, 'cron', day_of_week='sun', hour='20', minute='0', args=[bot, db])
     scheduler.start()
-
-    # Web App in background
-    threading.Thread(target=start_web, daemon=True).start()
 
     logging.info("Starting Mahiro bot...")
     try:

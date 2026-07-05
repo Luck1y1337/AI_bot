@@ -163,7 +163,6 @@ cp .env.example .env
 TELEGRAM_TOKEN=ваш_токен_от_botfather
 MISTRAL_API_KEY=ваш_ключ_mistral
 ADMIN_USER_IDS=123456789
-ADMIN_PANEL_TOKEN=любой_секретный_токен
 ENABLE_WHITELIST=false
 ```
 
@@ -175,26 +174,17 @@ python main.py
 
 > При первом запуске автоматически создаются папки `data/`, `cache/`, `logs/` и база данных.
 
-### Docker
+### Деплой на Railway
 
-```bash
-docker-compose up -d
-```
+Проект собирается по `Dockerfile` (см. `railway.json`), команда запуска — `python main.py`.
 
-```yaml
-# docker-compose.yml — данные, логи и кэш монтируются как volumes
-services:
-  bot:
-    build: .
-    env_file: .env
-    volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - ./cache:/app/cache
-    ports:
-      - "8000:8000"
-    restart: unless-stopped
-```
+> ⚠️ **Персистентность БД.** База лежит в `data/mahiro.db`. Чтобы она не терялась при
+> каждом передеплое, в Railway нужно создать **Volume** и примонтировать его на
+> `/app/data`. Без этого прогресс пользователей будет сбрасываться.
+
+> ⚠️ **Один инстанс.** Бот работает через long polling. Нельзя держать одновременно
+> запущенным локальный и Railway-инстанс с одним и тем же `TELEGRAM_TOKEN` — Telegram
+> вернёт `Conflict` (getUpdates). На время работы на хостинге останавливайте локальный.
 
 ---
 
@@ -235,8 +225,7 @@ mahiro_bot/
 │   └── fsm/states.py        # FSM-состояния
 │
 ├── media/                   # TTS, профили (Pillow), графики
-├── utils/                   # Достижения, квесты, форматирование
-└── web/app.py               # FastAPI дашборд (статистика, логи)
+└── utils/                   # Достижения, квесты, форматирование
 ```
 
 ### Поток обработки сообщения
@@ -262,7 +251,6 @@ Telegram → Dispatcher → Middleware Chain → Router → Handler
 | ИИ (текст) | **Mistral Small** | Ролевые диалоги |
 | ИИ (зрение) | **Pixtral 12B** | Анализ изображений |
 | База данных | **SQLite + aiosqlite** | WAL-режим, 23 таблицы, индексы |
-| Веб | **FastAPI + Jinja2** | Админ-дашборд, healthcheck |
 | Планировщик | **APScheduler** | Напоминания, крипта, бэкапы |
 | Изображения | **Pillow** | Генерация профильных карточек |
 | Графики | **matplotlib** | Аналитика активности |
@@ -332,7 +320,6 @@ Telegram → Dispatcher → Middleware Chain → Router → Handler
 | `TELEGRAM_TOKEN` | ✅ | Токен бота от @BotFather |
 | `MISTRAL_API_KEY` | ✅ | API-ключ Mistral AI |
 | `ADMIN_USER_IDS` | ✅ | ID администраторов (через запятую) |
-| `ADMIN_PANEL_TOKEN` | ✅ | JWT-секрет для веб-панели |
 | `ENABLE_WHITELIST` | | Режим белого списка (`true`/`false`) |
 | `WHITELIST_USER_IDS` | | Предодобренные ID |
 | `BLACKLIST_USER_IDS` | | Заблокированные ID |

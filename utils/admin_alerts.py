@@ -6,6 +6,6 @@ async def notify_admins(bot: Bot, message: str):
     settings = get_settings()
     for admin_id in settings.ADMIN_USER_IDS:
         try:
-            await bot.send_message(admin_id, f"⚠️ **Admin Alert** ⚠️\n\n{message}")
+            await bot.send_message(admin_id, f"⚠️ <b>Admin Alert</b> ⚠️\n\n{message}")
         except Exception as e:
             logging.error(f"Failed to send admin alert to {admin_id}: {e}")

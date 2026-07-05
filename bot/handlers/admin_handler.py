@@ -1,6 +1,7 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.fsm.context import FSMContext
+from aiogram.utils.text_decorations import html_decoration
 from database.repository import Database
 from config.settings import get_settings
 from bot.fsm.states import AdminStates
@@ -30,14 +31,14 @@ async def cmd_admin(message: Message):
 async def cb_admin_promo_create(callback: CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id): return
     await state.set_state(AdminStates.waiting_for_promo_data)
-    await callback.message.edit_text("Отправьте данные для промокода в формате:\n`<НАЗВАНИЕ> <КОИНЫ> <XP> <КОЛ-ВО ИСПОЛЬЗОВАНИЙ>`\n\nПример: `MAHIRO_GIFT 500 10 100`", parse_mode="Markdown")
+    await callback.message.edit_text("Отправьте данные для промокода в формате:\n<code>НАЗВАНИЕ КОИНЫ XP КОЛ-ВО</code>\n\nПример: <code>MAHIRO_GIFT 500 10 100</code>")
     await callback.answer()
 
 @router.message(AdminStates.waiting_for_promo_data)
 async def process_promo_data(message: Message, state: FSMContext, db: Database):
     parts = message.text.split()
     if len(parts) != 4:
-        await message.answer("❌ Неверный формат. Попробуйте еще раз: `НАЗВАНИЕ КОИНЫ XP ИСПОЛЬЗОВАНИЯ`")
+        await message.answer("❌ Неверный формат. Попробуйте еще раз: <code>НАЗВАНИЕ КОИНЫ XP ИСПОЛЬЗОВАНИЯ</code>")
         return
         
     try:
@@ -52,7 +53,7 @@ async def process_promo_data(message: Message, state: FSMContext, db: Database):
     await db._conn.execute('INSERT OR REPLACE INTO promocodes (code, reward_coins, reward_xp, max_uses, current_uses) VALUES (?, ?, ?, ?, 0)',
                           (code, coins, xp, uses))
     await db._conn.commit()
-    await message.answer(f"✅ Промокод `{code}` успешно создан!\nНаграда: {coins} 🪙, {xp} ✨\nИспользований: {uses}")
+    await message.answer(f"✅ Промокод <code>{html_decoration.quote(code)}</code> успешно создан!\nНаграда: {coins} 🪙, {xp} ✨\nИспользований: {uses}")
     await state.clear()
 
 @router.callback_query(F.data == "admin_ban_menu")
@@ -84,7 +85,7 @@ async def process_ban_id(message: Message, state: FSMContext, db: Database):
     
     await db._conn.execute('UPDATE users SET is_banned = 1 WHERE id = ?', (user_id,))
     await db._conn.commit()
-    await message.answer(f"✅ Пользователь `{user_id}` забанен!")
+    await message.answer(f"✅ Пользователь <code>{user_id}</code> забанен!")
     await state.clear()
 
 @router.callback_query(F.data == "admin_unban_user")
@@ -104,7 +105,7 @@ async def process_unban_id(message: Message, state: FSMContext, db: Database):
     
     await db._conn.execute('UPDATE users SET is_banned = 0 WHERE id = ?', (user_id,))
     await db._conn.commit()
-    await message.answer(f"✅ Пользователь `{user_id}` разбанен!")
+    await message.answer(f"✅ Пользователь <code>{user_id}</code> разбанен!")
     await state.clear()
 
 @router.callback_query(F.data.startswith("wl_approve_"))
@@ -112,7 +113,7 @@ async def wl_approve(callback: CallbackQuery, db: Database):
     if not is_admin(callback.from_user.id): return
     target_id = int(callback.data.split("_")[2])
     await db.add_to_whitelist(target_id)
-    await callback.message.edit_text(f"{callback.message.text}\n\n✅ **ОДОБРЕНО** администратором.")
+    await callback.message.edit_text(f"{html_decoration.quote(callback.message.text)}\n\n✅ <b>ОДОБРЕНО</b> администратором.")
     try:
         await callback.bot.send_message(target_id, "🎉 Администратор одобрил вашу заявку!\nТеперь вы можете общаться со мной. Напишите /start")
     except Exception: pass
@@ -123,7 +124,7 @@ async def wl_deny(callback: CallbackQuery, db: Database):
     if not is_admin(callback.from_user.id): return
     target_id = int(callback.data.split("_")[2])
     # Optionally add to blacklist, but for now just deny
-    await callback.message.edit_text(f"{callback.message.text}\n\n❌ **ОТКЛОНЕНО** администратором.")
+    await callback.message.edit_text(f"{html_decoration.quote(callback.message.text)}\n\n❌ <b>ОТКЛОНЕНО</b> администратором.")
     try:
         await callback.bot.send_message(target_id, "❌ Администратор отклонил вашу заявку на доступ.")
     except Exception: pass
@@ -149,7 +150,7 @@ async def admin_stats(callback: CallbackQuery, db: Database):
     if not is_admin(callback.from_user.id): return
     users = await db.get_all_users()
     total_msgs = sum(u.message_count for u in users)
-    text = f"📊 **Статистика**\nПользователей: {len(users)}\nСообщений: {total_msgs}"
+    text = f"📊 <b>Статистика</b>\nПользователей: {len(users)}\nСообщений: {total_msgs}"
     await callback.message.edit_text(text, reply_markup=get_back_button("admin_main"))
 
 @router.callback_query(F.data == "admin_transactions")
@@ -160,7 +161,7 @@ async def admin_transactions(callback: CallbackQuery, db: Database):
         await callback.message.edit_text("📜 История транзакций пуста.", reply_markup=get_back_button("admin_main"))
         return
         
-    text = "📜 **Последние 30 транзакций**\n\n"
+    text = "📜 <b>Последние 30 транзакций</b>\n\n"
     from datetime import datetime
     for t in transactions:
         dt = datetime.fromtimestamp(t.timestamp).strftime('%Y-%m-%d %H:%M')
@@ -198,7 +199,7 @@ async def admin_sysinfo(callback: CallbackQuery):
     cpu = psutil.cpu_percent()
     ram = psutil.virtual_memory().percent
     disk = psutil.disk_usage('/').percent
-    text = f"💻 **Система**\nCPU: {cpu}%\nRAM: {ram}%\nDisk: {disk}%\nOS: {platform.system()}"
+    text = f"💻 <b>Система</b>\nCPU: {cpu}%\nRAM: {ram}%\nDisk: {disk}%\nOS: {platform.system()}"
     await callback.message.edit_text(text, reply_markup=get_back_button("admin_settings"))
 
 @router.callback_query(F.data == "admin_export")
@@ -318,10 +319,10 @@ async def admin_selectuser(callback: CallbackQuery, state: FSMContext, db: Datab
         if not history:
             await callback.message.edit_text(f"История для {user_id} пуста.", reply_markup=get_back_button("admin_main"))
         else:
-            text = f"💬 **История для {user_id}:**\n\n"
+            text = f"💬 <b>История для {user_id}:</b>\n\n"
             for msg in history:
                 icon = "👤" if msg['role'] == "user" else "🤖"
-                text += f"{icon} {msg['content']}\n"
+                text += f"{icon} {html_decoration.quote(msg['content'])}\n"
                 if len(text) > 3500:
                     text += "...\n[Сообщение обрезано из-за лимита Telegram]"
                     break
@@ -402,7 +403,7 @@ async def cmd_system(message: Message):
     cpu = psutil.cpu_percent()
     ram = psutil.virtual_memory().percent
     disk = psutil.disk_usage('/').percent
-    text = f"💻 **Система**\nCPU: {cpu}%\nRAM: {ram}%\nDisk: {disk}%\nOS: {platform.system()}"
+    text = f"💻 <b>Система</b>\nCPU: {cpu}%\nRAM: {ram}%\nDisk: {disk}%\nOS: {platform.system()}"
     await message.answer(text)
 
 @router.message(F.text.startswith("/addpromo "))
@@ -411,13 +412,13 @@ async def cmd_addpromo(message: Message, db: Database):
     # /addpromo CODE COINS XP MAX_USES
     parts = message.text.split()
     if len(parts) != 5:
-        await message.answer("Формат: `/addpromo CODE COINS XP MAX_USES`\nПример: `/addpromo MAHIRO 1000 50 10`")
+        await message.answer("Формат: <code>/addpromo CODE COINS XP MAX_USES</code>\nПример: <code>/addpromo MAHIRO 1000 50 10</code>")
         return
         
     code, coins, xp, max_uses = parts[1], int(parts[2]), int(parts[3]), int(parts[4])
     await db._conn.execute('INSERT OR REPLACE INTO promocodes (code, reward_coins, reward_xp, max_uses, current_uses) VALUES (?, ?, ?, ?, 0)', (code, coins, xp, max_uses))
     await db._conn.commit()
-    await message.answer(f"✅ Промокод `{code}` создан! Дает: {coins} 🪙, {xp} XP. Использований: {max_uses}")
+    await message.answer(f"✅ Промокод <code>{html_decoration.quote(code)}</code> создан! Дает: {coins} 🪙, {xp} XP. Использований: {max_uses}")
 
 @router.message(F.text == "/logs")
 async def cmd_logs(message: Message):
@@ -443,7 +444,7 @@ async def admin_reload(event):
 async def admin_diag(callback: CallbackQuery, db: Database):
     if not is_admin(callback.from_user.id): return
     users = await db.get_all_users()
-    text = f"🔧 **Диагностика**\nПуть к БД: {db.db_path}\nВсего пользователей: {len(users)}\nСтатус: Онлайн"
+    text = f"🔧 <b>Диагностика</b>\nПуть к БД: {db.db_path}\nВсего пользователей: {len(users)}\nСтатус: Онлайн"
     await callback.message.edit_text(text, reply_markup=get_admin_main_kb())
 
 @router.callback_query(F.data == "admin_whitelist_menu")
@@ -576,7 +577,7 @@ async def admin_market_page(callback: CallbackQuery, db: Database, page: int):
     start_idx = page * items_per_page
     page_lots = lots[start_idx:start_idx+items_per_page]
     
-    text = f"🛒 **Управление Рынком** (Стр. {page+1}/{total_pages})\n\n"
+    text = f"🛒 <b>Управление Рынком</b> (Стр. {page+1}/{total_pages})\n\n"
     from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
     kb = []
     

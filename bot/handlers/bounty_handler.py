@@ -22,7 +22,7 @@ def get_bounty_kb(bounties: list) -> InlineKeyboardMarkup:
 async def cb_bounties_menu(callback: CallbackQuery, db: Database):
     bounties = await db.get_all_bounties()
     
-    text = "🎯 **Доска Наград (Bounty Board)**\n\nСамые разыскиваемые игроки сервера!\nПобедите их в Казино Коинфлип, чтобы забрать награду."
+    text = "🎯 <b>Доска Наград (Bounty Board)</b>\n\nСамые разыскиваемые игроки сервера!\nПобедите их в Казино Коинфлип, чтобы забрать награду."
     
     if not bounties:
         text += "\n\nПока никто не находится в розыске."
@@ -41,7 +41,7 @@ async def cb_bounty_add(callback: CallbackQuery, db: Database, state: FSMContext
         
     # We reuse the pay_select callback for simplicity, but we need to know we're in bounty mode
     await state.set_state(BountyStates.waiting_for_bounty_amount)
-    await callback.message.edit_text("🎯 **Назначить Награду**\n\nВыберите игрока, за чью голову вы хотите назначить награду:", reply_markup=get_social_users_kb(users, 0))
+    await callback.message.edit_text("🎯 <b>Назначить Награду</b>\n\nВыберите игрока, за чью голову вы хотите назначить награду:", reply_markup=get_social_users_kb(users, 0))
 
 @router.callback_query(BountyStates.waiting_for_bounty_amount, F.data.startswith("pay_select_"))
 async def cb_bounty_select_target(callback: CallbackQuery, state: FSMContext):

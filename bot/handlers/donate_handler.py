@@ -16,9 +16,9 @@ def get_donate_kb() -> InlineKeyboardMarkup:
 
 @router.message(F.text.in_(["/donate", "💝 Поддержать проект"]))
 async def cmd_donate(message: Message):
-    text = ("💝 **Поддержать разработку и развитие Махиро** 💝\n\n"
+    text = ("💝 <b>Поддержать разработку и развитие Махиро</b> 💝\n\n"
             "Спасибо, что играете и общаетесь со мной! Содержание серверов и новые функции требуют ресурсов.\n\n"
-            "Вы можете безопасно и быстро поддержать проект через **Telegram Stars (⭐️)**, купив игровые монеты или VIP-статус!")
+            "Вы можете безопасно и быстро поддержать проект через <b>Telegram Stars (⭐️)</b>, купив игровые монеты или VIP-статус!")
     await message.answer(text, reply_markup=get_donate_kb())
 
 @router.callback_query(F.data.startswith("buy_stars_"))
@@ -62,17 +62,29 @@ async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
 async def process_successful_payment(message: Message, db: Database):
     payload = message.successful_payment.invoice_payload
     user = await db.get_user(message.from_user.id)
-    
+
+    coins_granted = 0
+    reply = None
+
     if payload == 'buy_coins_500':
+        coins_granted = 500
         user.coins += 500
-        await message.answer("🎉 Спасибо за поддержку! Тебе начислено **500 🪙 MahiroCoins**!")
+        reply = "🎉 Спасибо за поддержку! Тебе начислено <b>500 🪙 MahiroCoins</b>!"
     elif payload == 'buy_coins_1500':
+        coins_granted = 1500
         user.coins += 1500
-        await message.answer("🎉 Ого! Спасибо огромное! Тебе начислено **1500 🪙 MahiroCoins**!")
+        reply = "🎉 Ого! Спасибо огромное! Тебе начислено <b>1500 🪙 MahiroCoins</b>!"
     elif payload == 'buy_vip':
+        coins_granted = 5000
         user.coins += 5000
         user.is_vip = True
         user.xp += 1000
-        await message.answer("🎉 ТЫ ЛУЧШИЙ! Спасибо за невероятную поддержку! Тебе начислен **VIP-статус** (теперь он будет отображаться в твоем профиле) и **5000 🪙 MahiroCoins**!")
-        
+        reply = "🎉 ТЫ ЛУЧШИЙ! Спасибо за невероятную поддержку! Тебе начислен <b>VIP-статус</b> (теперь он будет отображаться в твоем профиле) и <b>5000 🪙 MahiroCoins</b>!"
+    else:
+        return
+
+    # Persist the grant and record the transaction BEFORE replying, so a failure
+    # here never leaves the user thanked but uncredited / unaudited.
     await db.update_user(user)
+    await db.add_transaction(0, user.id, coins_granted, "stars_purchase")
+    await message.answer(reply)

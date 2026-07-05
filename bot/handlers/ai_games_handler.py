@@ -19,12 +19,12 @@ def get_ai_games_menu() -> InlineKeyboardMarkup:
 
 @router.message(F.text == "🤖 Игры с ИИ")
 async def cmd_ai_games(message: Message):
-    text = "🤖 **Игры с Махиро**\n\nВы можете сыграть с ИИ в интерактивные игры! Выберите во что поиграем:"
+    text = "🤖 <b>Игры с Махиро</b>\n\nВы можете сыграть с ИИ в интерактивные игры! Выберите во что поиграем:"
     await message.answer(text, reply_markup=get_ai_games_menu())
 
 @router.callback_query(F.data == "ai_games_menu")
 async def cb_ai_games(callback: CallbackQuery):
-    text = "🤖 **Игры с Махиро**\n\nВы можете сыграть с ИИ в интерактивные игры! Выберите во что поиграем:"
+    text = "🤖 <b>Игры с Махиро</b>\n\nВы можете сыграть с ИИ в интерактивные игры! Выберите во что поиграем:"
     await callback.message.edit_text(text, reply_markup=get_ai_games_menu())
     await callback.answer()
 
@@ -34,7 +34,7 @@ async def cb_start_guess(callback: CallbackQuery, state: FSMContext):
     await state.set_state(AIGamesStates.playing_guess_number)
     await state.update_data(ai_guess_number=number, ai_guess_attempts=0)
     
-    text = "🔢 **Угадай число (от 1 до 100)**\n\nЯ загадала число! Попробуй угадать его, отправляя мне числа в чат. Если хочешь сдаться, напиши 'отмена'."
+    text = "🔢 <b>Угадай число (от 1 до 100)</b>\n\nЯ загадала число! Попробуй угадать его, отправляя мне числа в чат. Если хочешь сдаться, напиши 'отмена'."
     await callback.message.edit_text(text)
 
 @router.message(AIGamesStates.playing_guess_number)
@@ -64,7 +64,7 @@ async def process_guess_number(message: Message, state: FSMContext, mistral: Mis
         user.trust += 5
         await db.update_user(user)
         resp = await mistral.generate_response([{"role": "user", "content": prompt}], sys_prompt)
-        await message.answer(f"🎉 **Правильно!**\n\nМахиро: {resp}")
+        await message.answer(f"🎉 <b>Правильно!</b>\n\nМахиро: {resp}")
         await state.clear()
     elif guess < secret:
         prompt = f"The user guessed {guess}. The secret number is HIGHER. Tell them it's higher."
@@ -79,7 +79,7 @@ async def process_guess_number(message: Message, state: FSMContext, mistral: Mis
 async def cb_start_words(callback: CallbackQuery, state: FSMContext):
     await state.set_state(AIGamesStates.playing_words)
     await state.update_data(ai_words_history=[])
-    text = "🔤 **Игра в Города**\n\nЯ начну! Мой город: **Москва**.\nТеперь тебе нужно назвать город на букву 'А'. (Пиши 'отмена' чтобы сдаться)."
+    text = "🔤 <b>Игра в Города</b>\n\nЯ начну! Мой город: <b>Москва</b>.\nТеперь тебе нужно назвать город на букву 'А'. (Пиши 'отмена' чтобы сдаться)."
     await callback.message.edit_text(text)
     await state.update_data(ai_last_letter='а', ai_words_history=['москва'])
 
@@ -135,4 +135,4 @@ async def process_words(message: Message, state: FSMContext, mistral: MistralCli
         ai_last_char = ai_city[-2]
         
     await state.update_data(ai_words_history=history, ai_last_letter=ai_last_char)
-    await message.answer(f"Мой ответ: **{ai_city.capitalize()}**!\nТебе на букву '{ai_last_char.upper()}'")
+    await message.answer(f"Мой ответ: <b>{ai_city.capitalize()}</b>!\nТебе на букву '{ai_last_char.upper()}'")

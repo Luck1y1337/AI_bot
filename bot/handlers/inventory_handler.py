@@ -33,7 +33,7 @@ async def cb_inventory(callback: CallbackQuery, db: Database):
     async with db._conn.execute('SELECT item_type, amount FROM inventory WHERE user_id = ?', (user_id,)) as cursor:
         items = await cursor.fetchall()
         
-    text = "🎒 **Ваш Инвентарь**\n\n"
+    text = "🎒 <b>Ваш Инвентарь</b>\n\n"
     if not items:
         text += "Пусто. Отправляйтесь добывать ресурсы!"
     else:
@@ -89,7 +89,7 @@ async def cb_inv_mine(callback: CallbackQuery, db: Database):
 
 @router.callback_query(F.data == "inv_craft_menu")
 async def cb_craft_menu(callback: CallbackQuery):
-    text = "⚒️ **Верстак**\n\nВыберите, что хотите скрафтить:"
+    text = "⚒️ <b>Верстак</b>\n\nВыберите, что хотите скрафтить:"
     await callback.message.edit_text(text, reply_markup=get_craft_kb())
     await callback.answer()
 

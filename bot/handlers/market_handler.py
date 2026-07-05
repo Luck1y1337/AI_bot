@@ -35,7 +35,7 @@ async def show_market(callback: CallbackQuery, db: Database, page: int):
         lots = await cursor.fetchall()
         
     if not lots:
-        await callback.message.edit_text("🛒 **Глобальный Рынок**\n\nЗдесь пока пусто. Вы можете выставить свои вещи на продажу первыми!", reply_markup=get_market_kb(0, 1))
+        await callback.message.edit_text("🛒 <b>Глобальный Рынок</b>\n\nЗдесь пока пусто. Вы можете выставить свои вещи на продажу первыми!", reply_markup=get_market_kb(0, 1))
         return
         
     items_per_page = 5
@@ -45,7 +45,7 @@ async def show_market(callback: CallbackQuery, db: Database, page: int):
     start_idx = page * items_per_page
     page_lots = lots[start_idx:start_idx+items_per_page]
     
-    text = f"🛒 **Глобальный Рынок** (Стр. {page+1}/{total_pages})\nПокупайте вещи у других игроков!\n\n"
+    text = f"🛒 <b>Глобальный Рынок</b> (Стр. {page+1}/{total_pages})\nПокупайте вещи у других игроков!\n\n"
     
     kb = []
     for lot in page_lots:
@@ -58,7 +58,7 @@ async def show_market(callback: CallbackQuery, db: Database, page: int):
                 row = await c.fetchone()
                 if row: item_name = f"Карточка: {row[0]}"
                 
-        text += f"📦 **{item_name}**\nПродавец: {seller_name} | Цена: {price} 🪙\n\n"
+        text += f"📦 <b>{item_name}</b>\nПродавец: {seller_name} | Цена: {price} 🪙\n\n"
         kb.append([InlineKeyboardButton(text=f"Купить {item_name} за {price} 🪙", callback_data=f"market_buy_{l_id}")])
         
     nav = []
@@ -116,7 +116,7 @@ async def cb_market_buy(callback: CallbackQuery, db: Database, bot: Bot):
             if row: item_name = f"Карточка: {row[0]}"
             
     try:
-        await bot.send_message(s_id, f"🎉 Ваш лот **{item_name}** был куплен на рынке!\nНа ваш счет зачислено {price} 🪙.")
+        await bot.send_message(s_id, f"🎉 Ваш лот <b>{item_name}</b> был куплен на рынке!\nНа ваш счет зачислено {price} 🪙.")
     except Exception: pass
     
     await callback.answer("Покупка успешно завершена!", show_alert=True)

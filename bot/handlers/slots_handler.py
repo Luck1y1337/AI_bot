@@ -32,9 +32,9 @@ def get_slots_kb() -> InlineKeyboardMarkup:
 @router.callback_query(F.data == "eco_slots")
 async def cb_slots_menu(callback: CallbackQuery):
     text = (
-        "🎰 **Игровой Автомат**\n\n"
+        "🎰 <b>Игровой Автомат</b>\n\n"
         "Три одинаковых символа = выигрыш!\n\n"
-        "**Выплаты (множитель к ставке):**\n"
+        "<b>Выплаты (множитель к ставке):</b>\n"
         "7️⃣ 7️⃣ 7️⃣ — x50\n"
         "💎 💎 💎 — x25\n"
         "⭐ ⭐ ⭐ — x15\n"
@@ -58,7 +58,7 @@ async def cb_slots_spin(callback: CallbackQuery, db: Database):
     r2 = random.choices(SYMBOLS, weights=WEIGHTS, k=1)[0]
     r3 = random.choices(SYMBOLS, weights=WEIGHTS, k=1)[0]
 
-    await callback.message.edit_text(f"🎰 **Крутим...**\n\n| ❓ | ❓ | ❓ |")
+    await callback.message.edit_text(f"🎰 <b>Крутим...</b>\n\n| ❓ | ❓ | ❓ |")
     await asyncio.sleep(1)
 
     result = (r1, r2, r3)
@@ -74,13 +74,13 @@ async def cb_slots_spin(callback: CallbackQuery, db: Database):
     line = f"| {r1} | {r2} | {r3} |"
 
     if multiplier >= 10:
-        text = f"🎰 **ДЖЕКПОТ!**\n\n{line}\n\n🎉 Выигрыш: **{winnings} 🪙** (x{multiplier})!"
+        text = f"🎰 <b>ДЖЕКПОТ!</b>\n\n{line}\n\n🎉 Выигрыш: <b>{winnings} 🪙</b> (x{multiplier})!"
     elif multiplier > 1:
-        text = f"🎰 **Есть совпадение!**\n\n{line}\n\n✨ Выигрыш: **{winnings} 🪙** (x{multiplier})"
+        text = f"🎰 <b>Есть совпадение!</b>\n\n{line}\n\n✨ Выигрыш: <b>{winnings} 🪙</b> (x{multiplier})"
     elif multiplier == 1:
-        text = f"🎰 **Почти!**\n\n{line}\n\n🔄 Ставка возвращена: {winnings} 🪙"
+        text = f"🎰 <b>Почти!</b>\n\n{line}\n\n🔄 Ставка возвращена: {winnings} 🪙"
     else:
-        text = f"🎰 **Мимо...**\n\n{line}\n\n💸 Вы потеряли {bet} 🪙"
+        text = f"🎰 <b>Мимо...</b>\n\n{line}\n\n💸 Вы потеряли {bet} 🪙"
 
     await callback.message.edit_text(text, reply_markup=get_slots_kb())
     await callback.answer()

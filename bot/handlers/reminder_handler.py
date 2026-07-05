@@ -65,5 +65,5 @@ async def process_remind_input(message: Message, state: FSMContext, db: Database
         return
         
     await db.add_reminder(message.from_user.id, text, fire_at)
-    await message.answer(f"Поняла. Напомню тебе про `{text}`.")
+    await message.answer(f"Поняла. Напомню тебе про <code>{text}</code>.")
     await state.clear()

@@ -31,7 +31,7 @@ async def cb_trade_menu(callback: CallbackQuery, db: Database, state: FSMContext
         
     await state.set_state(TradeStates.waiting_for_amount)
     await state.update_data(trade_step="select_user")
-    await callback.message.edit_text("🤝 **Прямой Обмен (Трейд)**\n\nВыберите игрока, которому хотите передать ресурсы:", reply_markup=get_social_users_kb(users, 0))
+    await callback.message.edit_text("🤝 <b>Прямой Обмен (Трейд)</b>\n\nВыберите игрока, которому хотите передать ресурсы:", reply_markup=get_social_users_kb(users, 0))
 
 @router.callback_query(TradeStates.waiting_for_amount, F.data.startswith("pay_select_"))
 async def cb_trade_select_user(callback: CallbackQuery, state: FSMContext, db: Database):
@@ -99,7 +99,7 @@ async def process_trade_amount(message: Message, state: FSMContext, db: Database
     try:
         await bot.send_message(
             target_id, 
-            f"🤝 **Входящий Трейд!**\n\nИгрок {user_id} хочет передать вам:\nПредмет: {item_type}\nКоличество: {amount} шт.\n\nПринять?",
+            f"🤝 <b>Входящий Трейд!</b>\n\nИгрок {user_id} хочет передать вам:\nПредмет: {item_type}\nКоличество: {amount} шт.\n\nПринять?",
             reply_markup=get_trade_confirm_kb(trade_id)
         )
     except Exception: pass

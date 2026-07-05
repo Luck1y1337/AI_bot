@@ -31,10 +31,10 @@ async def cb_eco_marry(callback: CallbackQuery, db: Database, state: FSMContext 
         level, fp = house
         bonus = level * 10
         
-        text = f"💍 **Ваш Брак с {partner_id}**\n\n"
-        text += f"🏡 **Совместный Дом (Ур. {level})**\n"
+        text = f"💍 <b>Ваш Брак с {partner_id}</b>\n\n"
+        text += f"🏡 <b>Совместный Дом (Ур. {level})</b>\n"
         text += f"Очки уюта (Мебель): {fp} / {level * 5}\n"
-        text += f"Текущий пассивный бонус обоим: **+{bonus}%** к доходу бизнесов!\n\n"
+        text += f"Текущий пассивный бонус обоим: <b>+{bonus}%</b> к доходу бизнесов!\n\n"
         text += "Покупайте мебель, чтобы повышать уют. Когда шкала уюта заполнится, дом повысит уровень!"
         
         await callback.message.edit_text(text, reply_markup=get_house_kb())
@@ -46,7 +46,7 @@ async def cb_eco_marry(callback: CallbackQuery, db: Database, state: FSMContext 
         await callback.answer("Нет доступных партнеров.", show_alert=True)
         return
     await state.set_state(MarryStates.waiting_for_partner)
-    await callback.message.edit_text("💍 **Предложение руки и сердца**\n\nВыберите партнера:", reply_markup=get_social_users_kb(users, 0))
+    await callback.message.edit_text("💍 <b>Предложение руки и сердца</b>\n\nВыберите партнера:", reply_markup=get_social_users_kb(users, 0))
 
 @router.callback_query(F.data == "house_buy_furniture")
 async def cb_house_buy_furniture(callback: CallbackQuery, db: Database):
@@ -87,7 +87,7 @@ async def cb_house_divorce(callback: CallbackQuery, db: Database):
     await db._conn.commit()
     
     await callback.answer("Вы успешно развелись.", show_alert=True)
-    await callback.message.edit_text("🤝 **Социальное**\n\nВзаимодействуй с другими игроками!", reply_markup=get_eco_social_kb())
+    await callback.message.edit_text("🤝 <b>Социальное</b>\n\nВзаимодействуй с другими игроками!", reply_markup=get_eco_social_kb())
 
 @router.callback_query(MarryStates.waiting_for_partner, F.data.startswith("pay_page_"))
 async def marry_paginate(callback: CallbackQuery, db: Database):
@@ -158,5 +158,5 @@ async def cb_marry_decline(callback: CallbackQuery, bot: Bot):
 @router.callback_query(MarryStates.waiting_for_partner, F.data == "pay_cancel")
 async def marry_cancel(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text("🤝 **Социальное**\n\nВзаимодействуй с другими игроками!", reply_markup=get_eco_social_kb())
+    await callback.message.edit_text("🤝 <b>Социальное</b>\n\nВзаимодействуй с другими игроками!", reply_markup=get_eco_social_kb())
     await callback.answer()
