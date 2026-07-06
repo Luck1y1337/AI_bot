@@ -26,12 +26,19 @@ def get_donate_kb() -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
+DONATE_TEXT = ("💝 <b>Поддержать развитие Махиро</b> 💝\n"
+               "━━━━━━━━━━━━━━\n"
+               "Спасибо, что играете и общаетесь со мной! Содержание серверов и новые функции требуют ресурсов.\n\n"
+               "Поддержи проект через <b>Telegram Stars (⭐️)</b> — купи игровые монеты, VIP-статус или введи свою сумму!")
+
 @router.message(F.text.in_(["/donate", "💝 Поддержать проект"]))
 async def cmd_donate(message: Message):
-    text = ("💝 <b>Поддержать разработку и развитие Махиро</b> 💝\n\n"
-            "Спасибо, что играете и общаетесь со мной! Содержание серверов и новые функции требуют ресурсов.\n\n"
-            "Вы можете безопасно и быстро поддержать проект через <b>Telegram Stars (⭐️)</b>, купив игровые монеты или VIP-статус!")
-    await message.answer(text, reply_markup=get_donate_kb())
+    await message.answer(DONATE_TEXT, reply_markup=get_donate_kb())
+
+@router.callback_query(F.data == "open_donate")
+async def cb_open_donate(callback: CallbackQuery):
+    await callback.message.answer(DONATE_TEXT, reply_markup=get_donate_kb())
+    await callback.answer()
 
 @router.callback_query(F.data.startswith("buy_stars_"))
 async def process_buy_stars(callback: CallbackQuery, bot: Bot):

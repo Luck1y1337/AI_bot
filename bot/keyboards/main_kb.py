@@ -1,19 +1,40 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from config.settings import get_settings
 
-def get_main_menu(user_id: int) -> ReplyKeyboardMarkup:
+def get_main_menu(user_id: int = 0) -> ReplyKeyboardMarkup:
+    # A single persistent launcher — everything else lives in the inline hub.
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="☰ Меню")]],
+        resize_keyboard=True,
+        is_persistent=True,
+    )
+
+# Header shown above the main inline hub.
+HUB_HEADER = (
+    "🏠 <b>ГЛАВНОЕ МЕНЮ</b>\n"
+    "━━━━━━━━━━━━━━\n"
+    "Выбери раздел 👇"
+)
+
+def get_main_hub(user_id: int = 0) -> InlineKeyboardMarkup:
     settings = get_settings()
-    
     kb = [
-        [KeyboardButton(text="🌟 Интерактив и Экономика")],
-        [KeyboardButton(text="🐾 Мой Питомец"), KeyboardButton(text="📊 Моя Статистика"), KeyboardButton(text="🏆 Лидеры")],
-        [KeyboardButton(text="🎤 Голос"), KeyboardButton(text="🎁 Промокод"), KeyboardButton(text="🆘 Поддержка")]
+        [InlineKeyboardButton(text="🎮 Игры", callback_data="cat_games"),
+         InlineKeyboardButton(text="💼 Заработок", callback_data="cat_income")],
+        [InlineKeyboardButton(text="🤝 Социальное", callback_data="cat_social"),
+         InlineKeyboardButton(text="🐾 Питомец", callback_data="eco_pets")],
+        [InlineKeyboardButton(text="📅 Ежедневный бонус", callback_data="eco_daily")],
+        [InlineKeyboardButton(text="📊 Профиль", callback_data="open_stats"),
+         InlineKeyboardButton(text="🏆 Лидеры", callback_data="open_leaderboard")],
+        [InlineKeyboardButton(text="🎁 Промокод", callback_data="open_promo"),
+         InlineKeyboardButton(text="🎤 Голос", callback_data="open_voice")],
+        [InlineKeyboardButton(text="💝 Поддержать", callback_data="open_donate"),
+         InlineKeyboardButton(text="🆘 Поддержка", callback_data="open_support")],
+        [InlineKeyboardButton(text="🔗 Пригласить друга", callback_data="open_invite")],
     ]
-    
     if user_id in settings.ADMIN_USER_IDS:
-        kb.append([KeyboardButton(text="👑 Админ Панель")])
-        
-    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True, is_persistent=False)
+        kb.append([InlineKeyboardButton(text="👑 Админ-панель", callback_data="open_admin")])
+    return InlineKeyboardMarkup(inline_keyboard=kb)
 
 def get_pay_users_kb(users: list, page: int = 0) -> InlineKeyboardMarkup:
     keyboard = []
@@ -68,15 +89,6 @@ def get_social_users_kb(users: list, page: int = 0) -> InlineKeyboardMarkup:
     keyboard.append([InlineKeyboardButton(text="× Отмена", callback_data="pay_cancel")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-def get_economy_menu() -> InlineKeyboardMarkup:
-    kb = [
-        [InlineKeyboardButton(text="📅 Ежедневный Бонус (🔥 Streak)", callback_data="eco_daily")],
-        [InlineKeyboardButton(text="🎮 Игры и Развлечения", callback_data="cat_games")],
-        [InlineKeyboardButton(text="💼 Заработок и Финансы", callback_data="cat_income")],
-        [InlineKeyboardButton(text="🤝 Социальное", callback_data="cat_social")]
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=kb)
-
 def get_eco_games_kb() -> InlineKeyboardMarkup:
     kb = [
         [InlineKeyboardButton(text="🎰 Казино (Coinflip)", callback_data="eco_casino"),
@@ -91,7 +103,7 @@ def get_eco_games_kb() -> InlineKeyboardMarkup:
          InlineKeyboardButton(text="🎮 Викторина", callback_data="eco_quiz")],
         [InlineKeyboardButton(text="⚔️ Рейд на Босса", callback_data="eco_raid"),
          InlineKeyboardButton(text="🎟 Лотерея", callback_data="eco_lottery")],
-        [InlineKeyboardButton(text="« Назад в Меню", callback_data="back_to_main_eco")]
+        [InlineKeyboardButton(text="🏠 Меню", callback_data="main_hub")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
@@ -102,7 +114,7 @@ def get_eco_income_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="🎯 Контракты (Квесты)", callback_data="eco_contracts"),
          InlineKeyboardButton(text="🏪 Магазин", callback_data="eco_shop")],
         [InlineKeyboardButton(text="🛒 Глобальный Рынок", callback_data="eco_market")],
-        [InlineKeyboardButton(text="« Назад в Меню", callback_data="back_to_main_eco")]
+        [InlineKeyboardButton(text="🏠 Меню", callback_data="main_hub")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
@@ -115,14 +127,15 @@ def get_eco_social_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="💸 Перевод Коинов", callback_data="eco_transfer"),
          InlineKeyboardButton(text="👍 +Репутация", callback_data="eco_rep")],
         [InlineKeyboardButton(text="🎁 Подарить ИИ Подарок", callback_data="gift_main")],
-        [InlineKeyboardButton(text="« Назад в Меню", callback_data="back_to_main_eco")]
+        [InlineKeyboardButton(text="🏠 Меню", callback_data="main_hub")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
 def get_stats_kb() -> InlineKeyboardMarkup:
     kb = [
         [InlineKeyboardButton(text="⏰ Мои Напоминания", callback_data="stats_reminders")],
-        [InlineKeyboardButton(text="🔄 Сброс памяти ИИ (Reset)", callback_data="stats_reset")]
+        [InlineKeyboardButton(text="🔄 Сброс памяти ИИ (Reset)", callback_data="stats_reset")],
+        [InlineKeyboardButton(text="🏠 Меню", callback_data="main_hub")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=kb)
 

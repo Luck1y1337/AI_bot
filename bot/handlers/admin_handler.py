@@ -25,7 +25,15 @@ def is_admin(user_id: int) -> bool:
 async def cmd_admin(message: Message):
     if not is_admin(message.from_user.id):
         return
-    await message.answer("Админ Панель", reply_markup=get_admin_main_kb())
+    await message.answer("👑 <b>АДМИН-ПАНЕЛЬ</b>\n━━━━━━━━━━━━━━", reply_markup=get_admin_main_kb())
+
+@router.callback_query(F.data == "open_admin")
+async def cb_open_admin(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    await callback.message.answer("👑 <b>АДМИН-ПАНЕЛЬ</b>\n━━━━━━━━━━━━━━", reply_markup=get_admin_main_kb())
+    await callback.answer()
 
 @router.callback_query(F.data == "admin_promo_create")
 async def cb_admin_promo_create(callback: CallbackQuery, state: FSMContext):

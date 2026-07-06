@@ -11,10 +11,18 @@ settings = get_settings()
 
 @router.message(F.text.in_(["/support", "🆘 Поддержка"]))
 async def cmd_support(message: Message, state: FSMContext):
+    await _start_support(message, state)
+
+@router.callback_query(F.data == "open_support")
+async def cb_open_support(callback: CallbackQuery, state: FSMContext):
+    await _start_support(callback.message, state)
+    await callback.answer()
+
+async def _start_support(chat: Message, state: FSMContext):
     await state.set_state(SupportStates.waiting_for_ticket)
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Отмена", callback_data="support_cancel")]])
-    await message.answer("У тебя проблемы? Или просто хочешь поговорить со мной напрямую? Опиши свою проблему в одном сообщении, и я (или кто-то из взрослых) тебе ответим.\n*(Или нажми Отмена)*", reply_markup=kb)
+    await chat.answer("🆘 <b>Поддержка</b>\n━━━━━━━━━━━━━━\nОпиши проблему одним сообщением — я (или кто-то из взрослых) ответим.\n<i>Или нажми Отмена.</i>", reply_markup=kb)
 
 @router.callback_query(F.data == "support_cancel")
 async def cb_support_cancel(callback: CallbackQuery, state: FSMContext):

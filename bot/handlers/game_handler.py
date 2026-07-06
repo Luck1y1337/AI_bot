@@ -69,10 +69,18 @@ async def process_quiz(callback: CallbackQuery, db: Database):
 
 @router.message(F.text.in_(["/leaderboard", "🏆 Лидеры"]))
 async def cmd_leaderboard(message: Message, db: Database):
+    await _show_leaderboard(message, db)
+
+@router.callback_query(F.data == "open_leaderboard")
+async def cb_open_leaderboard(callback: CallbackQuery, db: Database):
+    await _show_leaderboard(callback.message, db)
+    await callback.answer()
+
+async def _show_leaderboard(chat: Message, db: Database):
     from utils.levels import get_level, get_title
     top_users = await db.get_top_users_by_xp(10)
     medals = ["🥇", "🥈", "🥉"]
-    text = "🏆 <b>Таблица Лидеров</b> 🏆\n\n"
+    text = "🏆 <b>ТАБЛИЦА ЛИДЕРОВ</b> 🏆\n━━━━━━━━━━━━━━\n\n"
     for i, u in enumerate(top_users):
         inventory = await db.get_user_inventory(u.id)
         titles = [item[3] for item in inventory if item[2] == 'title']
@@ -81,7 +89,8 @@ async def cmd_leaderboard(message: Message, db: Database):
         display_name = f"@{u.username}" if u.username else f"ID {u.id}"
         lvl = get_level(u.xp)
         text += f"{medal}{title_text} {display_name} — Ур. {lvl} ({u.xp} XP)\n"
-    await message.answer(text)
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🏠 Меню", callback_data="main_hub")]])
+    await chat.answer(text, reply_markup=kb)
 
 @router.callback_query(F.data == "eco_blackjack")
 async def cb_eco_blackjack(callback: CallbackQuery, state: FSMContext):

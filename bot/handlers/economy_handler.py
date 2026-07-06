@@ -3,7 +3,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from database.repository import Database
 from bot.fsm.states import PayStates, CasinoStates, ShopStates, RepStates
 from aiogram.fsm.context import FSMContext
-from bot.keyboards.main_kb import get_pay_users_kb, get_economy_menu, get_eco_games_kb, get_eco_income_kb, get_eco_social_kb, get_social_users_kb
+from bot.keyboards.main_kb import get_pay_users_kb, get_eco_games_kb, get_eco_income_kb, get_eco_social_kb, get_social_users_kb, get_main_hub, HUB_HEADER
 from bot.keyboards.economy_kb import get_businesses_kb, get_shop_kb, get_bank_kb
 import asyncio
 import time
@@ -13,12 +13,15 @@ router = Router()
 
 @router.message(F.text == "🌟 Интерактив и Экономика")
 async def cmd_economy_menu(message: Message):
-    await message.answer("Добро пожаловать в раздел Игр и Экономики! Выберите действие:", reply_markup=get_economy_menu())
+    await message.answer(HUB_HEADER, reply_markup=get_main_hub(message.from_user.id))
 
 @router.callback_query(F.data.in_(["menu_economy", "menu_games", "back_to_main_eco"]))
 async def cb_economy_menu_back(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.edit_text("🌟 <b>Интерактив и Экономика</b>\n\nВыберите категорию:", reply_markup=get_economy_menu())
+    try:
+        await callback.message.edit_text(HUB_HEADER, reply_markup=get_main_hub(callback.from_user.id))
+    except Exception:
+        await callback.message.answer(HUB_HEADER, reply_markup=get_main_hub(callback.from_user.id))
     await callback.answer()
 
 @router.callback_query(F.data == "cat_games")
@@ -293,7 +296,10 @@ async def process_pay_amount(message: Message, db: Database, state: FSMContext, 
 
 @router.callback_query(F.data == "back_to_economy")
 async def cb_back_to_economy(callback: CallbackQuery):
-    await callback.message.edit_text("🌟 <b>Интерактив и Экономика</b>\n\nВыберите категорию:", reply_markup=get_economy_menu())
+    try:
+        await callback.message.edit_text(HUB_HEADER, reply_markup=get_main_hub(callback.from_user.id))
+    except Exception:
+        await callback.message.answer(HUB_HEADER, reply_markup=get_main_hub(callback.from_user.id))
     await callback.answer()
 
 # --- Бизнесы ---

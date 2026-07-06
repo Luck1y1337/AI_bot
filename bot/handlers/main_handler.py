@@ -14,7 +14,7 @@ from utils.triggers import analyze_triggers
 from ai.triggers import TriggerSystem
 from utils.achievements import check_achievements
 from utils.levels import get_level, get_title, get_xp_for_next, check_level_up
-from bot.keyboards.main_kb import get_main_menu
+from bot.keyboards.main_kb import get_main_menu, get_main_hub, HUB_HEADER
 from utils.profile_gen import generate_profile_image
 import random
 import os
@@ -29,6 +29,21 @@ async def cmd_cancel(message: Message, state: FSMContext):
     await message.answer("❌ Действие отменено.", reply_markup=get_main_menu(message.from_user.id))
 
 REFERRAL_BONUS = 500
+
+# --- Main inline hub ---
+@router.message(F.text.in_(["/menu", "☰ Меню"]))
+async def cmd_menu(message: Message):
+    await message.answer(HUB_HEADER, reply_markup=get_main_hub(message.from_user.id))
+
+@router.callback_query(F.data.in_(["main_hub", "menu_main"]))
+async def cb_main_hub(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    try:
+        await callback.message.edit_text(HUB_HEADER, reply_markup=get_main_hub(callback.from_user.id))
+    except Exception:
+        # e.g. previous message was a photo (caption) — send a fresh hub instead.
+        await callback.message.answer(HUB_HEADER, reply_markup=get_main_hub(callback.from_user.id))
+    await callback.answer()
 
 @router.message(CommandStart(), StateFilter("*"))
 async def cmd_start(message: Message, db: Database, bot: Bot, state: FSMContext):
@@ -65,18 +80,29 @@ async def cmd_start(message: Message, db: Database, bot: Bot, state: FSMContext)
             "О, новенький! Добро пожаловать. Я Махиро. 🎀\n\n"
             "Давай я покажу тебе, как тут всё устроено. Я перевела тебе твой первый стартовый капитал: <b>500 🪙</b>!\n\n"
             "🎯 <b>Твой первый квест:</b>\n"
-            "Нажми кнопку «🌟 Интерактив и Экономика» внизу, затем выбери «Заработок и Финансы» -> «Магазин» и купи себе энергетик!"
+            "Открой «☰ Меню» → <b>💼 Заработок</b> → <b>🏪 Магазин</b> и купи себе энергетик!"
         )
         await message.answer(tutorial_text, reply_markup=get_main_menu(message.from_user.id))
+        await message.answer(HUB_HEADER, reply_markup=get_main_hub(message.from_user.id))
     else:
-        await message.answer("Эм... привет. Я Махиро. А ты кто?", reply_markup=get_main_menu(message.from_user.id))
+        await message.answer("Эм... привет. Я Махиро. 🎀", reply_markup=get_main_menu(message.from_user.id))
+        await message.answer(HUB_HEADER, reply_markup=get_main_hub(message.from_user.id))
     
 @router.message(F.text.in_(["/stats", "📊 Моя Статистика"]))
 async def cmd_stats(message: Message, db: Database, bot: Bot):
-    user = await db.get_user(message.from_user.id)
-    achievements = await db.get_user_achievements(message.from_user.id)
-    inventory = await db.get_user_inventory(message.from_user.id)
-    
+    await _show_stats(message, message.from_user.id, db, bot)
+
+@router.callback_query(F.data == "open_stats")
+async def cb_open_stats(callback: CallbackQuery, db: Database, bot: Bot):
+    await _show_stats(callback.message, callback.from_user.id, db, bot)
+    await callback.answer()
+
+async def _show_stats(chat: Message, user_id: int, db: Database, bot: Bot):
+    message = chat  # kept name below for minimal diff
+    user = await db.get_user(user_id)
+    achievements = await db.get_user_achievements(user_id)
+    inventory = await db.get_user_inventory(user_id)
+
     # Beautify achievements
     ach_text = "\n".join([f"🏆 {a.achievement_type}" for a in achievements]) if achievements else "Пока нет 😔"
     
@@ -104,7 +130,7 @@ async def cmd_stats(message: Message, db: Database, bot: Bot):
     # Generate profile image
     avatar_bytes = None
     try:
-        user_photos = await bot.get_user_profile_photos(message.from_user.id)
+        user_photos = await bot.get_user_profile_photos(user_id)
         if user_photos.total_count > 0:
             photo = user_photos.photos[0][-1]
             file = await bot.get_file(photo.file_id)
@@ -163,8 +189,16 @@ async def cmd_mood(message: Message, db: Database):
 
 @router.message(F.text == "🎤 Голос")
 async def btn_voice_help(message: Message, state: FSMContext):
+    await _start_voice(message, state)
+
+@router.callback_query(F.data == "open_voice")
+async def cb_open_voice(callback: CallbackQuery, state: FSMContext):
+    await _start_voice(callback.message, state)
+    await callback.answer()
+
+async def _start_voice(chat: Message, state: FSMContext):
     await state.set_state(VoiceStates.waiting_for_text)
-    await message.answer("Отправьте текст, который вы хотите, чтобы я озвучила:")
+    await chat.answer("🎤 <b>Озвучка</b>\nОтправь текст, который я произнесу своим голосом:")
 
 @router.message(VoiceStates.waiting_for_text)
 async def process_voice_text(message: Message, state: FSMContext, db: Database, mistral: MistralClient, memory: MemoryManager):
@@ -217,8 +251,16 @@ async def process_photo(message: Message, db: Database, mistral: MistralClient, 
 
 @router.message(F.text == "🎁 Промокод")
 async def btn_promo_start(message: Message, state: FSMContext):
+    await _start_promo(message, state)
+
+@router.callback_query(F.data == "open_promo")
+async def cb_open_promo(callback: CallbackQuery, state: FSMContext):
+    await _start_promo(callback.message, state)
+    await callback.answer()
+
+async def _start_promo(chat: Message, state: FSMContext):
     await state.set_state(PromoStates.waiting_for_code)
-    await message.answer("Отправь мне промокод!", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Отмена", callback_data="cancel_promo")]]))
+    await chat.answer("🎁 <b>Промокод</b>\nОтправь мне код:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_promo")]]))
 
 @router.callback_query(F.data == "cancel_promo")
 async def cancel_promo(callback: CallbackQuery, state: FSMContext):
@@ -269,15 +311,23 @@ async def process_promo_code(message: Message, state: FSMContext, db: Database):
 
 @router.message(F.text == "/invite")
 async def cmd_invite(message: Message, db: Database, bot: Bot):
+    await _show_invite(message, message.from_user.id, db, bot)
+
+@router.callback_query(F.data == "open_invite")
+async def cb_open_invite(callback: CallbackQuery, db: Database, bot: Bot):
+    await _show_invite(callback.message, callback.from_user.id, db, bot)
+    await callback.answer()
+
+async def _show_invite(chat: Message, user_id: int, db: Database, bot: Bot):
     bot_user = await bot.me()
-    ref_link = f"https://t.me/{bot_user.username}?start=ref_{message.from_user.id}"
-    ref_count = await db.get_referral_count(message.from_user.id)
+    ref_link = f"https://t.me/{bot_user.username}?start=ref_{user_id}"
+    ref_count = await db.get_referral_count(user_id)
     text = (
         f"🔗 <b>Твоя реферальная ссылка:</b>\n<code>{ref_link}</code>\n\n"
         f"Поделись ссылкой с друзьями — вы оба получите <b>{REFERRAL_BONUS} 🪙</b>!\n\n"
         f"👥 Приглашено друзей: <b>{ref_count}</b>"
     )
-    await message.answer(text)
+    await chat.answer(text)
 
 @router.message(F.text)
 async def process_message(message: Message, db: Database, mistral: MistralClient, memory: MemoryManager, bot: Bot):
