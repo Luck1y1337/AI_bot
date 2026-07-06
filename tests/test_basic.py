@@ -1,4 +1,5 @@
 import pytest
+import os
 import time
 from database.repository import Database
 from utils.levels import get_level, get_title, get_xp_for_next, check_level_up
@@ -277,6 +278,40 @@ async def test_star_payment_refund_flow(db):
     assert await db.mark_star_payment_refunded(pid) is True
     assert await db.mark_star_payment_refunded(pid) is False
     assert (await db.get_star_payment(pid))[6] == 1  # refunded flag set
+
+
+# --- Backup / restore: snapshot is consistent and restore replaces data ---
+
+async def test_backup_and_restore(db, tmp_path):
+    # Seed some state into the live DB.
+    user = await db.get_user(4242)
+    user.coins = 777
+    await db.update_user(user)
+
+    # A consistent snapshot can be taken while the DB is live.
+    snapshot = str(tmp_path / "snap.db")
+    await db.backup_to(snapshot)
+    assert os.path.exists(snapshot)
+
+    # Mutate after the snapshot, then restore — the change must be rolled back.
+    user.coins = 5
+    await db.update_user(user)
+    assert (await db.get_user(4242)).coins == 5
+
+    await db.restore_from(snapshot)
+    assert (await db.get_user(4242)).coins == 777
+
+
+async def test_restore_rejects_non_mahiro_db(db, tmp_path):
+    # A valid SQLite file without a users table must be refused.
+    import aiosqlite
+    bogus = str(tmp_path / "bogus.db")
+    conn = await aiosqlite.connect(bogus)
+    await conn.execute("CREATE TABLE unrelated (x INTEGER)")
+    await conn.commit()
+    await conn.close()
+    with pytest.raises(ValueError):
+        await db.restore_from(bogus)
 
 
 # --- Input escaping: user text is HTML-escaped before rendering ---

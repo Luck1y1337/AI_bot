@@ -306,6 +306,39 @@ class Database:
         if self._conn:
             await self._conn.close()
 
+    async def backup_to(self, dest_path: str):
+        """Write a consistent snapshot of the live DB to dest_path.
+
+        Uses SQLite's online backup API, which takes an atomic snapshot even
+        while the bot keeps reading/writing — no risk of a torn copy like a
+        raw file copy would have. dest_path must not already exist.
+        """
+        await self._conn.commit()
+        dest = await aiosqlite.connect(dest_path)
+        try:
+            await self._conn.backup(dest)
+        finally:
+            await dest.close()
+
+    async def restore_from(self, src_path: str):
+        """Replace the live DB contents with those from src_path.
+
+        Copies src -> live via the online backup API, so the existing
+        connection stays valid (no file swap, no reconnect). Raises if src is
+        not a valid Mahiro database (missing the users table).
+        """
+        src = await aiosqlite.connect(src_path)
+        try:
+            async with src.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
+            ) as cur:
+                if await cur.fetchone() is None:
+                    raise ValueError("Файл не похож на базу Mahiro (нет таблицы users).")
+            await src.backup(self._conn)
+        finally:
+            await src.close()
+        await self._conn.commit()
+
     async def get_user(self, user_id: int) -> User:
         async with self._conn.execute('SELECT id, trust, mood, message_count, xp, coins, is_banned, last_daily_time, username, custom_prompt, is_vip, profile_frame, tutorial_done, streak_count, last_streak_date, referred_by FROM users WHERE id = ?', (user_id,)) as cursor:
             row = await cursor.fetchone()

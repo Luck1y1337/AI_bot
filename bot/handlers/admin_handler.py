@@ -1,5 +1,5 @@
-from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, FSInputFile
+from aiogram import Router, F, Bot
+from aiogram.types import Message, CallbackQuery, FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.text_decorations import html_decoration
 from database.repository import Database
@@ -13,13 +13,109 @@ import os
 import zipfile
 import csv
 import json
+import shutil
 from memory.memory_manager import MemoryManager
 
 router = Router()
 settings = get_settings()
 
+# Where an uploaded backup is staged as a raw .db before the admin confirms restore.
+RESTORE_READY = "cache/backup/restore_ready.db"
+
 def is_admin(user_id: int) -> bool:
     return user_id in settings.ADMIN_USER_IDS
+
+
+@router.message(F.text == "/backup")
+async def cmd_backup(message: Message, db: Database, bot: Bot):
+    """Trigger an on-demand backup (same as the nightly job)."""
+    if not is_admin(message.from_user.id):
+        return
+    await message.answer("📦 Создаю бэкап…")
+    from utils.backup import perform_backup
+    await perform_backup(bot, db)
+
+
+@router.message(F.text.startswith("/restore"))
+async def cmd_restore(message: Message, bot: Bot):
+    """Restore the DB from a backup file (reply to the uploaded .zip or .db)."""
+    if not is_admin(message.from_user.id):
+        return
+    doc = message.reply_to_message.document if message.reply_to_message else None
+    if not doc:
+        await message.answer(
+            "Чтобы восстановить БД, <b>ответь этой командой на файл бэкапа</b> "
+            "(mahiro_backup.zip или mahiro.db) — напиши <code>/restore</code> в ответ на сообщение с файлом."
+        )
+        return
+
+    os.makedirs("cache/backup", exist_ok=True)
+    upload = "cache/backup/restore_upload.bin"
+    try:
+        await bot.download(doc, destination=upload)
+        # Resolve the upload to a raw .db file (unzip if it's an archive).
+        if (doc.file_name or "").lower().endswith(".zip") or zipfile.is_zipfile(upload):
+            with zipfile.ZipFile(upload) as zf:
+                db_names = [n for n in zf.namelist() if n.endswith(".db")]
+                if not db_names:
+                    await message.answer("❌ В архиве нет файла .db.")
+                    return
+                with zf.open(db_names[0]) as src, open(RESTORE_READY, "wb") as out:
+                    shutil.copyfileobj(src, out)
+        else:
+            shutil.copy(upload, RESTORE_READY)
+    except Exception as e:
+        await message.answer(f"❌ Не удалось прочитать файл: {e}")
+        return
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="✅ Да, восстановить", callback_data="restore_confirm"),
+        InlineKeyboardButton(text="❌ Отмена", callback_data="restore_cancel"),
+    ]])
+    await message.answer(
+        "⚠️ <b>Восстановление базы данных</b>\n━━━━━━━━━━━━━━\n"
+        "Текущие данные будут <b>полностью заменены</b> содержимым этого файла. "
+        "Действие необратимо. Продолжить?",
+        reply_markup=kb,
+    )
+
+
+@router.callback_query(F.data == "restore_confirm")
+async def cb_restore_confirm(callback: CallbackQuery, db: Database):
+    if not is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    if not os.path.exists(RESTORE_READY):
+        await callback.message.edit_text("❌ Файл для восстановления не найден — начни заново.")
+        await callback.answer()
+        return
+    try:
+        await db.restore_from(RESTORE_READY)
+    except Exception as e:
+        await callback.message.edit_text(f"❌ Восстановление не удалось: {e}")
+        await callback.answer()
+        return
+    try:
+        os.remove(RESTORE_READY)
+    except OSError:
+        pass
+    count = len(await db.get_all_users())
+    await callback.message.edit_text(f"✅ База восстановлена. Пользователей в базе: <b>{count}</b>.")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "restore_cancel")
+async def cb_restore_cancel(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    if os.path.exists(RESTORE_READY):
+        try:
+            os.remove(RESTORE_READY)
+        except OSError:
+            pass
+    await callback.message.edit_text("Восстановление отменено.")
+    await callback.answer()
 
 @router.message(F.text.in_(["/admin", "👑 Админ Панель"]))
 async def cmd_admin(message: Message):

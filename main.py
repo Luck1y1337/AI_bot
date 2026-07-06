@@ -201,7 +201,7 @@ async def main():
     scheduler.add_job(check_reminders, 'interval', seconds=60, args=[bot, db])
     scheduler.add_job(update_crypto_market, 'interval', minutes=60, args=[db])
     scheduler.add_job(proactive_message, 'cron', hour='8,23', args=[bot, db, mistral, memory])
-    scheduler.add_job(perform_backup, 'cron', hour='3', minute='0', args=[bot])
+    scheduler.add_job(perform_backup, 'cron', hour='3', minute='0', args=[bot, db])
     scheduler.add_job(draw_lottery, 'cron', day_of_week='sun', hour='20', minute='0', args=[bot, db])
     scheduler.start()
 
@@ -228,6 +228,8 @@ async def main():
             BotCommand(command="admin", description="Открыть главное меню Админ-Панели."),
             BotCommand(command="addpromo", description="Создать промокод. Пример: /addpromo MAHIRO 100 50 10."),
             BotCommand(command="refund", description="Вернуть донат Stars. Пример: /refund <charge_id>."),
+            BotCommand(command="backup", description="Создать бэкап БД сейчас и получить его в личку."),
+            BotCommand(command="restore", description="Восстановить БД: ответить командой на файл бэкапа."),
             BotCommand(command="ban", description="Заблокировать пользователя."),
             BotCommand(command="unban", description="Разблокировать пользователя."),
             BotCommand(command="maintenance", description="Включить/выключить режим обслуживания."),
