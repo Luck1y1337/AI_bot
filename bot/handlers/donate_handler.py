@@ -17,6 +17,25 @@ MAX_STARS = 10000
 def _is_admin(user_id: int) -> bool:
     return user_id in settings.ADMIN_USER_IDS
 
+def compute_grant(payload: str):
+    """Map a paid invoice payload to what the user gets.
+
+    Pure function (no I/O) so the money path is unit-testable. Returns
+    (coins, grant_vip, xp_bonus, reply_text) or None for an unknown payload.
+    """
+    if payload == "buy_coins_500":
+        return 500, False, 0, "🎉 Спасибо за поддержку! Тебе начислено <b>500 🪙 MahiroCoins</b>!"
+    if payload == "buy_coins_1500":
+        return 1500, False, 0, "🎉 Ого! Спасибо огромное! Тебе начислено <b>1500 🪙 MahiroCoins</b>!"
+    if payload == "buy_vip":
+        return 5000, True, 1000, ("🎉 ТЫ ЛУЧШИЙ! Спасибо за невероятную поддержку! Тебе начислен "
+                                  "<b>VIP-статус</b> (теперь он будет отображаться в твоем профиле) "
+                                  "и <b>5000 🪙 MahiroCoins</b>!")
+    if payload.startswith("buy_custom_"):
+        coins = int(payload.split("_")[2]) * COINS_PER_STAR
+        return coins, False, 0, f"🎉 Спасибо за поддержку! Тебе начислено <b>{coins} 🪙 MahiroCoins</b>!"
+    return None
+
 def get_donate_kb() -> InlineKeyboardMarkup:
     kb = [
         [InlineKeyboardButton(text="🪙 500 MahiroCoins (⭐️ 50)", callback_data="buy_stars_50")],
@@ -122,31 +141,16 @@ async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
 @router.message(F.successful_payment)
 async def process_successful_payment(message: Message, db: Database):
     payload = message.successful_payment.invoice_payload
-    user = await db.get_user(message.from_user.id)
-
-    coins_granted = 0
-    reply = None
-
-    if payload == 'buy_coins_500':
-        coins_granted = 500
-        user.coins += 500
-        reply = "🎉 Спасибо за поддержку! Тебе начислено <b>500 🪙 MahiroCoins</b>!"
-    elif payload == 'buy_coins_1500':
-        coins_granted = 1500
-        user.coins += 1500
-        reply = "🎉 Ого! Спасибо огромное! Тебе начислено <b>1500 🪙 MahiroCoins</b>!"
-    elif payload == 'buy_vip':
-        coins_granted = 5000
-        user.coins += 5000
-        user.is_vip = True
-        user.xp += 1000
-        reply = "🎉 ТЫ ЛУЧШИЙ! Спасибо за невероятную поддержку! Тебе начислен <b>VIP-статус</b> (теперь он будет отображаться в твоем профиле) и <b>5000 🪙 MahiroCoins</b>!"
-    elif payload.startswith('buy_custom_'):
-        coins_granted = int(payload.split('_')[2]) * COINS_PER_STAR
-        user.coins += coins_granted
-        reply = f"🎉 Спасибо за поддержку! Тебе начислено <b>{coins_granted} 🪙 MahiroCoins</b>!"
-    else:
+    grant = compute_grant(payload)
+    if grant is None:
         return
+    coins_granted, granted_vip, xp_bonus, reply = grant
+
+    user = await db.get_user(message.from_user.id)
+    user.coins += coins_granted
+    user.xp += xp_bonus
+    if granted_vip:
+        user.is_vip = True
 
     # Persist the grant and record the transaction BEFORE replying, so a failure
     # here never leaves the user thanked but uncredited / unaudited.
@@ -155,7 +159,6 @@ async def process_successful_payment(message: Message, db: Database):
 
     # Store the payment (with charge_id) so an admin can refund it later.
     sp = message.successful_payment
-    granted_vip = payload == "buy_vip"
     payment_id = await db.add_star_payment(
         user.id, sp.telegram_payment_charge_id, sp.total_amount, coins_granted, granted_vip
     )

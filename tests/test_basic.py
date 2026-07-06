@@ -285,3 +285,28 @@ def test_html_escaping():
     mod = pytest.importorskip("aiogram.utils.text_decorations")
     quote = mod.html_decoration.quote
     assert quote("<b>x</b> & <i") == "&lt;b&gt;x&lt;/b&gt; &amp; &lt;i"
+
+
+# --- Payment grant math: each payload maps to the correct coins/VIP ---
+
+def test_compute_grant():
+    pytest.importorskip("aiogram")
+    from bot.handlers.donate_handler import compute_grant, COINS_PER_STAR
+
+    # Fixed packages
+    coins, vip, xp, _ = compute_grant("buy_coins_500")
+    assert (coins, vip, xp) == (500, False, 0)
+    coins, vip, xp, _ = compute_grant("buy_coins_1500")
+    assert (coins, vip, xp) == (1500, False, 0)
+
+    # VIP package grants VIP + XP bonus
+    coins, vip, xp, _ = compute_grant("buy_vip")
+    assert coins == 5000 and vip is True and xp == 1000
+
+    # Custom amount honours the coins-per-star rate
+    coins, vip, xp, _ = compute_grant("buy_custom_20")
+    assert coins == 20 * COINS_PER_STAR and vip is False
+
+    # Unknown / tampered payloads grant nothing
+    assert compute_grant("buy_bogus") is None
+    assert compute_grant("") is None
