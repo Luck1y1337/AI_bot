@@ -26,6 +26,7 @@ def get_main_hub(user_id: int = 0) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="📅 Ежедневный бонус", callback_data="eco_daily")],
         [InlineKeyboardButton(text="📊 Профиль", callback_data="open_stats"),
          InlineKeyboardButton(text="🏆 Лидеры", callback_data="open_leaderboard")],
+        [InlineKeyboardButton(text="😊 Настроение", callback_data="open_mood")],
         [InlineKeyboardButton(text="🎁 Промокод", callback_data="open_promo"),
          InlineKeyboardButton(text="🎤 Голос", callback_data="open_voice")],
         [InlineKeyboardButton(text="💝 Поддержать", callback_data="open_donate"),

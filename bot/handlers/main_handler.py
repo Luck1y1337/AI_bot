@@ -171,9 +171,8 @@ async def cmd_reset(message: Message, memory):
     memory.short.clear_history(message.from_user.id)
     await message.answer("Хм… начнём сначала? 😅\n(история диалога очищена)")
 
-@router.message(F.text.in_(["/mood"]))
-async def cmd_mood(message: Message, db: Database):
-    user = await db.get_user(message.from_user.id)
+async def _show_mood(chat, user_id: int, db: Database):
+    user = await db.get_user(user_id)
     mood_emojis = {
         "normal": "😐",
         "happy": "😊",
@@ -185,7 +184,16 @@ async def cmd_mood(message: Message, db: Database):
     }
     emoji = mood_emojis.get(user.mood, "😐")
     response = f"Эм… сейчас я {user.mood} {emoji}\nМы общаемся уже какое-то время… доверие: {user.trust}%"
-    await message.answer(response)
+    await chat.answer(response)
+
+@router.message(F.text.in_(["/mood"]))
+async def cmd_mood(message: Message, db: Database):
+    await _show_mood(message, message.from_user.id, db)
+
+@router.callback_query(F.data == "open_mood")
+async def open_mood(callback: CallbackQuery, db: Database):
+    await _show_mood(callback.message, callback.from_user.id, db)
+    await callback.answer()
 
 @router.message(F.text == "🎤 Голос")
 async def btn_voice_help(message: Message, state: FSMContext):
