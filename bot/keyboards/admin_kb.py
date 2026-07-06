@@ -46,10 +46,20 @@ def get_settings_menu() -> InlineKeyboardMarkup:
     keyboard = [
         [InlineKeyboardButton(text="📊 Аналитика (Графики)", callback_data="admin_analytics")],
         [InlineKeyboardButton(text="💾 Экспорт данных", callback_data="admin_export")],
+        [InlineKeyboardButton(text="🗄 Бэкап / Восстановление", callback_data="admin_backup_menu")],
         [InlineKeyboardButton(text="💻 Система", callback_data="admin_sysinfo")],
         [InlineKeyboardButton(text="📝 Логи", callback_data="admin_logs")],
         [InlineKeyboardButton(text="🔄 Перезагрузить", callback_data="admin_reload")],
         [InlineKeyboardButton(text="« Назад", callback_data="admin_main")],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+def get_backup_menu() -> InlineKeyboardMarkup:
+    """Меню бэкапа / восстановления"""
+    keyboard = [
+        [InlineKeyboardButton(text="📦 Создать бэкап сейчас", callback_data="admin_backup_now")],
+        [InlineKeyboardButton(text="♻️ Восстановить из файла", callback_data="admin_restore_start")],
+        [InlineKeyboardButton(text="« Назад", callback_data="admin_settings")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 

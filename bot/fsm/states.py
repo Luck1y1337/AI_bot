@@ -14,6 +14,7 @@ class AdminStates(StatesGroup):
     waiting_for_promo_data = State()
     waiting_for_ban_id = State()
     waiting_for_unban_id = State()
+    waiting_for_restore_file = State()
 
 class SupportStates(StatesGroup):
     waiting_for_ticket = State()

@@ -5,7 +5,7 @@ from aiogram.utils.text_decorations import html_decoration
 from database.repository import Database
 from config.settings import get_settings
 from bot.fsm.states import AdminStates
-from bot.keyboards.admin_kb import get_admin_main_kb, get_settings_menu, get_back_button, get_whitelist_menu, get_blacklist_menu, get_users_selection_kb
+from bot.keyboards.admin_kb import get_admin_main_kb, get_settings_menu, get_back_button, get_whitelist_menu, get_blacklist_menu, get_users_selection_kb, get_backup_menu
 from media.charts import generate_activity_chart
 import psutil
 import platform
@@ -36,6 +36,42 @@ async def cmd_backup(message: Message, db: Database, bot: Bot):
     await perform_backup(bot, db)
 
 
+async def _stage_and_confirm_restore(chat: Message, bot: Bot, doc) -> None:
+    """Download an uploaded backup, unzip to a raw .db, and ask to confirm restore.
+
+    Shared by the /restore command (reply-to-file) and the admin-panel upload flow.
+    """
+    os.makedirs("cache/backup", exist_ok=True)
+    upload = "cache/backup/restore_upload.bin"
+    try:
+        await bot.download(doc, destination=upload)
+        # Resolve the upload to a raw .db file (unzip if it's an archive).
+        if (doc.file_name or "").lower().endswith(".zip") or zipfile.is_zipfile(upload):
+            with zipfile.ZipFile(upload) as zf:
+                db_names = [n for n in zf.namelist() if n.endswith(".db")]
+                if not db_names:
+                    await chat.answer("❌ В архиве нет файла .db.")
+                    return
+                with zf.open(db_names[0]) as src, open(RESTORE_READY, "wb") as out:
+                    shutil.copyfileobj(src, out)
+        else:
+            shutil.copy(upload, RESTORE_READY)
+    except Exception as e:
+        await chat.answer(f"❌ Не удалось прочитать файл: {e}")
+        return
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="✅ Да, восстановить", callback_data="restore_confirm"),
+        InlineKeyboardButton(text="❌ Отмена", callback_data="restore_cancel"),
+    ]])
+    await chat.answer(
+        "⚠️ <b>Восстановление базы данных</b>\n━━━━━━━━━━━━━━\n"
+        "Текущие данные будут <b>полностью заменены</b> содержимым этого файла. "
+        "Действие необратимо. Продолжить?",
+        reply_markup=kb,
+    )
+
+
 @router.message(F.text.startswith("/restore"))
 async def cmd_restore(message: Message, bot: Bot):
     """Restore the DB from a backup file (reply to the uploaded .zip or .db)."""
@@ -48,36 +84,52 @@ async def cmd_restore(message: Message, bot: Bot):
             "(mahiro_backup.zip или mahiro.db) — напиши <code>/restore</code> в ответ на сообщение с файлом."
         )
         return
+    await _stage_and_confirm_restore(message, bot, doc)
 
-    os.makedirs("cache/backup", exist_ok=True)
-    upload = "cache/backup/restore_upload.bin"
-    try:
-        await bot.download(doc, destination=upload)
-        # Resolve the upload to a raw .db file (unzip if it's an archive).
-        if (doc.file_name or "").lower().endswith(".zip") or zipfile.is_zipfile(upload):
-            with zipfile.ZipFile(upload) as zf:
-                db_names = [n for n in zf.namelist() if n.endswith(".db")]
-                if not db_names:
-                    await message.answer("❌ В архиве нет файла .db.")
-                    return
-                with zf.open(db_names[0]) as src, open(RESTORE_READY, "wb") as out:
-                    shutil.copyfileobj(src, out)
-        else:
-            shutil.copy(upload, RESTORE_READY)
-    except Exception as e:
-        await message.answer(f"❌ Не удалось прочитать файл: {e}")
+
+@router.callback_query(F.data == "admin_backup_menu")
+async def cb_admin_backup_menu(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer()
         return
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="✅ Да, восстановить", callback_data="restore_confirm"),
-        InlineKeyboardButton(text="❌ Отмена", callback_data="restore_cancel"),
-    ]])
-    await message.answer(
-        "⚠️ <b>Восстановление базы данных</b>\n━━━━━━━━━━━━━━\n"
-        "Текущие данные будут <b>полностью заменены</b> содержимым этого файла. "
-        "Действие необратимо. Продолжить?",
-        reply_markup=kb,
+    await callback.message.edit_text(
+        "🗄 <b>Бэкап / Восстановление</b>\n━━━━━━━━━━━━━━\n"
+        "📦 Создать бэкап — снимет копию БД и пришлёт её сюда файлом.\n"
+        "♻️ Восстановить — заменит текущую БД содержимым присланного файла бэкапа.",
+        reply_markup=get_backup_menu(),
     )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin_backup_now")
+async def cb_admin_backup_now(callback: CallbackQuery, db: Database, bot: Bot):
+    if not is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    await callback.answer("Создаю бэкап…")
+    from utils.backup import perform_backup
+    await perform_backup(bot, db)
+
+
+@router.callback_query(F.data == "admin_restore_start")
+async def cb_admin_restore_start(callback: CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    await state.set_state(AdminStates.waiting_for_restore_file)
+    await callback.message.answer(
+        "♻️ Пришли <b>файл бэкапа</b> (mahiro_backup.zip или mahiro.db) следующим сообщением.\n\n"
+        "Чтобы отменить — /admin."
+    )
+    await callback.answer()
+
+
+@router.message(AdminStates.waiting_for_restore_file, F.document)
+async def on_restore_file(message: Message, state: FSMContext, bot: Bot):
+    if not is_admin(message.from_user.id):
+        return
+    await state.clear()
+    await _stage_and_confirm_restore(message, bot, message.document)
 
 
 @router.callback_query(F.data == "restore_confirm")
