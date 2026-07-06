@@ -13,10 +13,6 @@ class Settings(BaseModel):
     # Path to the SQLite database file. Local default is fine; on Railway set
     # DB_PATH=/data/mahiro.db and mount a Volume at /data so it survives redeploys.
     DB_PATH: str = "data/mahiro.db"
-    # Optional uptime "heartbeat" URL (UptimeRobot / Better Stack heartbeat monitor).
-    # If set, the bot pings it every few minutes; if pings stop, the monitor alerts
-    # you that the bot is down. Leave empty to disable.
-    HEARTBEAT_URL: str = ""
 
     @field_validator('ADMIN_USER_IDS', 'WHITELIST_USER_IDS', 'BLACKLIST_USER_IDS', mode='before')
     @classmethod

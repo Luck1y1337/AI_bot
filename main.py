@@ -197,17 +197,12 @@ async def main():
         await db_inst.advance_lottery_round()
 
     from utils.backup import perform_backup
-    from utils.heartbeat import send_heartbeat
     scheduler = AsyncIOScheduler()
     scheduler.add_job(check_reminders, 'interval', seconds=60, args=[bot, db])
     scheduler.add_job(update_crypto_market, 'interval', minutes=60, args=[db])
     scheduler.add_job(proactive_message, 'cron', hour='8,23', args=[bot, db, mistral, memory])
     scheduler.add_job(perform_backup, 'cron', hour='3', minute='0', args=[bot])
     scheduler.add_job(draw_lottery, 'cron', day_of_week='sun', hour='20', minute='0', args=[bot, db])
-    # Uptime heartbeat: ping an external monitor every 5 min so it can alert if
-    # the bot process dies (no-op unless HEARTBEAT_URL is set).
-    if settings.HEARTBEAT_URL:
-        scheduler.add_job(send_heartbeat, 'interval', minutes=5)
     scheduler.start()
 
     logging.info("Starting Mahiro bot...")
