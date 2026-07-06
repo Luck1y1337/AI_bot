@@ -289,8 +289,14 @@ def test_html_escaping():
 
 # --- Payment grant math: each payload maps to the correct coins/VIP ---
 
-def test_compute_grant():
+def test_compute_grant(monkeypatch):
     pytest.importorskip("aiogram")
+    # donate_handler builds Settings at import time; supply dummy creds so the
+    # import doesn't fail in a clean CI env with no .env.
+    monkeypatch.setenv("TELEGRAM_TOKEN", "123:dummy")
+    monkeypatch.setenv("MISTRAL_API_KEY", "dummy")
+    monkeypatch.setenv("ADMIN_USER_IDS", "1")
+    monkeypatch.setenv("WHITELIST_USER_IDS", "1")
     from bot.handlers.donate_handler import compute_grant, COINS_PER_STAR
 
     # Fixed packages
