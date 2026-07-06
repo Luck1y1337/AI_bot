@@ -10,6 +10,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.types import BotCommand, BotCommandScopeDefault, BotCommandScopeChat, ErrorEvent
 from aiogram.utils.text_decorations import html_decoration
+from aiogram.exceptions import TelegramBadRequest
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from config.settings import get_settings
@@ -40,8 +41,20 @@ logger = logging.getLogger(__name__)
 async def on_error(event: ErrorEvent):
     # Catch-all so an exception in any handler is logged and the user gets a
     # soft reply instead of a silent hang.
-    logger.error("Unhandled update error: %s", event.exception, exc_info=event.exception)
     update = event.update
+
+    # Benign: a refresh button re-rendered identical content. Telegram rejects
+    # the edit, but there's nothing wrong — just ack the click quietly, don't
+    # log it as an error or scare the user with a "something went wrong" alert.
+    if isinstance(event.exception, TelegramBadRequest) and "message is not modified" in str(event.exception):
+        if update.callback_query:
+            try:
+                await update.callback_query.answer()
+            except Exception:
+                pass
+        return True
+
+    logger.error("Unhandled update error: %s", event.exception, exc_info=event.exception)
     try:
         if update.message:
             await update.message.answer("Ой... что-то пошло не так. Попробуй ещё раз чуть позже.")
