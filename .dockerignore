@@ -1,0 +1,33 @@
+# Keep secrets and local runtime state out of the image (COPY . . would
+# otherwise bake them in). Prod state lives in the mounted /data volume.
+.env
+.env.*
+!.env.example
+
+# Version control / CI / dev-only
+.git
+.github
+.dev
+.agents
+.claude
+
+# Local data, logs, caches — regenerated at runtime
+data/
+logs/
+cache/
+media/tts_output/
+
+# Python caches / virtualenvs / tests
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
