@@ -97,7 +97,33 @@ async def main():
     # All persistent state lives next to the DB file, so a single mounted
     # volume (see DB_PATH / Railway Volume) keeps both the DB and long-term memory.
     data_dir = os.path.dirname(settings.DB_PATH) or "."
-    os.makedirs(data_dir, exist_ok=True)
+    logging.info("Database path: %r (directory: %r)", settings.DB_PATH, data_dir)
+
+    # DB_PATH must be a file path, not empty and not a directory. A common
+    # misconfig is pointing it at the volume mount dir itself (e.g. /data).
+    if not settings.DB_PATH or settings.DB_PATH.endswith(("/", "\\")) or os.path.isdir(settings.DB_PATH):
+        logging.critical(
+            "DB_PATH=%r is invalid: it must be a FILE path like /data/mahiro.db, "
+            "not empty and not a directory.", settings.DB_PATH,
+        )
+        raise SystemExit(1)
+
+    # Create the data dir and verify it is actually writable — a mounted volume
+    # can exist yet be read-only or owned by another user, which surfaces later
+    # as an opaque "unable to open database file" from SQLite.
+    try:
+        os.makedirs(data_dir, exist_ok=True)
+        _probe = os.path.join(data_dir, ".write_test")
+        with open(_probe, "w") as _f:
+            _f.write("ok")
+        os.remove(_probe)
+    except OSError as e:
+        logging.critical(
+            "Data directory %r is not writable: %s. On Railway, mount a Volume at "
+            "this path and make sure DB_PATH points to a file inside it.", data_dir, e,
+        )
+        raise SystemExit(1)
+
     os.makedirs("cache", exist_ok=True)
 
     create_placeholders()
