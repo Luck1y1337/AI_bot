@@ -99,14 +99,31 @@ async def main():
     data_dir = os.path.dirname(settings.DB_PATH) or "."
     logging.info("Database path: %r (directory: %r)", settings.DB_PATH, data_dir)
 
-    # DB_PATH must be a file path, not empty and not a directory. A common
-    # misconfig is pointing it at the volume mount dir itself (e.g. /data).
-    if not settings.DB_PATH or settings.DB_PATH.endswith(("/", "\\")) or os.path.isdir(settings.DB_PATH):
+    # DB_PATH must be a file path, not empty and not a directory path.
+    if not settings.DB_PATH or settings.DB_PATH.endswith(("/", "\\")):
         logging.critical(
-            "DB_PATH=%r is invalid: it must be a FILE path like /data/mahiro.db, "
-            "not empty and not a directory.", settings.DB_PATH,
+            "DB_PATH=%r is empty or a directory path; set it to a file like /data/mahiro.db.",
+            settings.DB_PATH,
         )
         raise SystemExit(1)
+
+    # A mis-mounted volume (mount path set to the DB file instead of /data) or a
+    # stray makedirs can leave DB_PATH as a directory, which SQLite reports as the
+    # opaque "unable to open database file". Auto-remove an empty stray dir;
+    # otherwise stop with an actionable message.
+    if os.path.isdir(settings.DB_PATH):
+        try:
+            os.rmdir(settings.DB_PATH)
+            logging.warning(
+                "DB_PATH %r was an empty directory — removed it so the DB file can be created.",
+                settings.DB_PATH,
+            )
+        except OSError as e:
+            logging.critical(
+                "DB_PATH=%r is a directory, not a file (%s). On Railway, set the Volume mount "
+                "path to '/data' (NOT '/data/mahiro.db').", settings.DB_PATH, e,
+            )
+            raise SystemExit(1)
 
     # Create the data dir and verify it is actually writable — a mounted volume
     # can exist yet be read-only or owned by another user, which surfaces later
